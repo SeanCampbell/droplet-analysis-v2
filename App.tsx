@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import JSZip from 'jszip';
 import type { FrameAnalysis, Droplet } from './types';
-import { extractFramesFromVideo } from './services/videoService';
+import { extractFramesFromVideo, VideoProcessingProgress } from './services/videoService';
 import { analyzeFrameWithGemini } from './services/geminiService';
-import { detectCirclesWithHough } from './services/houghCircleService';
+import { detectCirclesWithHough, analyzeFrameWithHough } from './services/houghCircleService';
 import { FrameCanvas } from './components/FrameCanvas';
 
 type DetectionAlgorithm = 'gemini' | 'hough';
@@ -17,14 +17,18 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [extractionProgress, setExtractionProgress] = useState({ current: 0, total: 0 });
+  const [videoProcessingStage, setVideoProcessingStage] = useState<string>('');
+  const [videoProcessingMessage, setVideoProcessingMessage] = useState<string>('');
   const [imageDimensions, setImageDimensions] = useState({ width: 1280, height: 720 });
-  const [frameInterval, setFrameInterval] = useState(60);
-  const [detectionAlgorithm, setDetectionAlgorithm] = useState<DetectionAlgorithm>('gemini');
+  const [frameInterval, setFrameInterval] = useState(120);
+  const [detectionAlgorithm, setDetectionAlgorithm] = useState<DetectionAlgorithm>('hough');
   const [view, setView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const fileSizeMB = file.size / (1024 * 1024);
+      
       setVideoFile(file);
       setFrames([]);
       setAnalyses([]);
@@ -32,6 +36,11 @@ const App: React.FC = () => {
       setStatus('idle');
       setError(null);
       setView({ zoom: 1, pan: { x: 0, y: 0 } });
+      
+      // Show warning for large files
+      if (fileSizeMB > 100) {
+        setError(`Warning: File is ${fileSizeMB.toFixed(1)}MB. Conversion may be slow. Consider using a smaller file or converting to MP4 manually.`);
+      }
     }
   };
 
@@ -44,11 +53,19 @@ const App: React.FC = () => {
     setExtractionProgress({ current: 0, total: 0 });
     setAnalyses([]);
     setView({ zoom: 1, pan: { x: 0, y: 0 } });
+    setVideoProcessingStage('');
+    setVideoProcessingMessage('');
     
     try {
       const fps = 1 / frameInterval;
-      const onProgressCallback = (progress: { current: number; total: number }) => {
-        setExtractionProgress(progress);
+      const onProgressCallback = (progress: VideoProcessingProgress) => {
+        setVideoProcessingStage(progress.stage);
+        setVideoProcessingMessage(progress.message);
+        setProgress(progress.progress);
+        
+        if (progress.extractionProgress) {
+          setExtractionProgress(progress.extractionProgress);
+        }
       };
 
       const extractedFrames = await extractFramesFromVideo(videoFile, fps, onProgressCallback);
@@ -112,12 +129,24 @@ const App: React.FC = () => {
             ctx?.drawImage(image, 0, 0);
             const imageData = ctx?.getImageData(0, 0, image.width, image.height);
 
-            const [geminiData, houghDroplets] = await Promise.all([
-                analyzeFrameWithGemini(frameData),
-                imageData ? detectCirclesWithHough(imageData) : Promise.resolve([])
-            ]);
-
-            analysisResult = { ...geminiData, droplets: houghDroplets, dropletsFound: houghDroplets.length > 0 };
+            if (imageData) {
+                // Use the new comprehensive analysis function
+                analysisResult = await analyzeFrameWithHough(imageData);
+            } else {
+                // Fallback if imageData is null
+                analysisResult = {
+                    timestamp: "Not Found",
+                    timestampFound: false,
+                    scaleFound: false,
+                    dropletsFound: false,
+                    droplets: [],
+                    scale: {
+                        x1: 0, y1: 0, x2: 0, y2: 0,
+                        label: "Not Found",
+                        length: 0
+                    }
+                };
+            }
         }
         
         const newAnalysis: FrameAnalysis = { frame: i, ...analysisResult };
@@ -255,7 +284,26 @@ const App: React.FC = () => {
         return <p className="text-gray-500">Upload a video to begin analysis.</p>;
       case 'extracting':
         const { current, total } = extractionProgress;
-        return <p className="text-blue-500 animate-pulse">Extracting frame {current} of ~{total} from video...</p>;
+        return (
+          <div className="w-full">
+            <p className="text-blue-500 animate-pulse">
+              {videoProcessingStage === 'checking' && 'Checking video format...'}
+              {videoProcessingStage === 'converting' && `Converting video... (${Math.round(progress)}%)`}
+              {videoProcessingStage === 'extracting' && `Extracting frame ${current} of ~${total} from video...`}
+              {videoProcessingStage === 'complete' && 'Video processing complete!'}
+              {videoProcessingStage === 'error' && 'Video processing error!'}
+              {!videoProcessingStage && 'Processing video...'}
+            </p>
+            {videoProcessingMessage && (
+              <p className="text-sm text-gray-600 mt-1">{videoProcessingMessage}</p>
+            )}
+            {(videoProcessingStage === 'converting' || videoProcessingStage === 'extracting') && (
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+              </div>
+            )}
+          </div>
+        );
       case 'analyzing':
         return (
           <div className="w-full">
@@ -285,7 +333,12 @@ const App: React.FC = () => {
                   <span className="text-xs text-white pr-2">{Math.round(view.zoom * 100)}%</span>
               </div>
               {currentAnalysis && (
-                <div className="absolute top-2 left-2 z-10 bg-black bg-opacity-60 text-white p-2 rounded-md text-xs space-y-1 shadow-lg">
+                <div className={`absolute top-2 left-2 z-10 bg-black bg-opacity-60 text-white p-2 rounded-md text-xs space-y-1 shadow-lg ${
+                  (currentAnalysis.dropletsFound === false || 
+                   currentAnalysis.scaleFound === false || 
+                   currentAnalysis.timestampFound === false) 
+                    ? 'block' : 'hidden'
+                }`}>
                   {currentAnalysis.dropletsFound === false && <p className="text-amber-300">⚠️ Droplets defaulted</p>}
                   {currentAnalysis.scaleFound === false && <p className="text-amber-300">⚠️ Scale defaulted</p>}
                   {currentAnalysis.timestampFound === false && <p className="text-amber-300">⚠️ Timestamp not found</p>}
@@ -333,7 +386,6 @@ const App: React.FC = () => {
       <header className="bg-white shadow-md">
         <div className="container mx-auto px-6 py-4">
           <h1 className="text-3xl font-bold text-gray-900">Droplet Analysis Lab</h1>
-          <p className="text-gray-600 mt-1">Fully Client-Side Analysis</p>
         </div>
       </header>
 
@@ -351,6 +403,10 @@ const App: React.FC = () => {
                   onChange={handleFileChange}
                   className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Supports MP4, WebM, OGG directly. AVI, MOV, WMV, FLV, MKV, 3GP, M4V formats 
+                  will be automatically converted to MP4. <strong>For best performance, use videos under 100MB.</strong>
+                </p>
               </div>
               
               <div>
@@ -371,6 +427,7 @@ const App: React.FC = () => {
                   <option value={10}>10 seconds (0.1 FPS)</option>
                   <option value={30}>30 seconds (0.03 FPS)</option>
                   <option value={60}>60 seconds (0.017 FPS)</option>
+                  <option value={120}>120 seconds (0.0083 FPS)</option>
                 </select>
               </div>
 
@@ -384,7 +441,7 @@ const App: React.FC = () => {
                   className="w-full p-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="gemini">Gemini Vision</option>
-                  <option value="hough">Hough Transform (Experimental)</option>
+                  <option value="hough">Hough Transform</option>
                 </select>
               </div>
 

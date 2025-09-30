@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python API Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐍 Python API Integration Test</h1>
+        <p>This page tests the integration between the frontend and the Python Hough Circle Detection API.</p>
+        
+        <div class="test-section info">
+            <h3>📋 Test Instructions</h3>
+            <ol>
+                <li>Make sure the Python server is running on <code>http://localhost:5001</code></li>
+                <li>Click "Run All Tests" to test the complete integration</li>
+                <li>Or run individual tests to debug specific issues</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test Controls</h3>
+            <button onclick="runAllTests()">Run All Tests</button>
+            <button onclick="testHealthCheck()">Health Check</button>
+            <button onclick="testCircleDetection()">Circle Detection</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Test Results</h3>
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Test Log</h3>
+            <div id="log" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🖼️ Test Image</h3>
+            <canvas id="testCanvas" width="400" height="300"></canvas>
+            <p>This test image contains two circles that should be detected by the API.</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5001';
+        let testResults = [];
+        
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+            testResults = [];
+            updateTestResults();
+        }
+        
+        function updateTestResults() {
+            const resultsElement = document.getElementById('testResults');
+            if (testResults.length === 0) {
+                resultsElement.innerHTML = '<p>No tests run yet.</p>';
+                return;
+            }
+            
+            const passed = testResults.filter(r => r.passed).length;
+            const total = testResults.length;
+            
+            let html = `<h4>Summary: ${passed}/${total} tests passed</h4>`;
+            testResults.forEach(result => {
+                const status = result.passed ? '✅' : '❌';
+                const className = result.passed ? 'success' : 'error';
+                html += `<div class="test-section ${className}">
+                    <strong>${status} ${result.name}</strong><br>
+                    ${result.message}
+                </div>`;
+            });
+            
+            resultsElement.innerHTML = html;
+        }
+        
+        function addTestResult(name, passed, message) {
+            testResults.push({ name, passed, message });
+            updateTestResults();
+        }
+        
+        function createTestImage() {
+            const canvas = document.getElementById('testCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas with white background
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw test circles
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 3;
+            
+            // Circle 1: Center at (100, 100), radius 30
+            ctx.beginPath();
+            ctx.arc(100, 100, 30, 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            // Circle 2: Center at (300, 200), radius 25
+            ctx.beginPath();
+            ctx.arc(300, 200, 25, 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            return canvas.toDataURL('image/jpeg', 0.8).split(',')[1]; // Remove data URL prefix
+        }
+        
+        async function testHealthCheck() {
+            log('Testing health check endpoint...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`, {
+                    method: 'GET',
+                    timeout: 5000
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Health check passed: ${JSON.stringify(data)}`);
+                    addTestResult('Health Check', true, `Server is healthy: ${data.status}`);
+                    return true;
+                } else {
+                    log(`❌ Health check failed: ${response.status}`);
+                    addTestResult('Health Check', false, `HTTP ${response.status}`);
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Health check failed: ${error.message}`);
+                addTestResult('Health Check', false, error.message);
+                return false;
+            }
+        }
+        
+        async function testCircleDetection() {
+            log('Testing circle detection endpoint...');
+            try {
+                const testImage = createTestImage();
+                
+                const requestData = {
+                    image: testImage,
+                    min_radius: 20,
+                    max_radius: 50,
+                    dp: 1,
+                    min_dist: 50,
+                    param1: 50,
+                    param2: 85
+                };
+                
+                const response = await fetch(`${API_BASE_URL}/detect-circles`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        const circles = data.circles || [];
+                        log(`✅ Circle detection successful: Found ${circles.length} circles`);
+                        circles.forEach((circle, i) => {
+                            log(`   Circle ${i+1}: center=(${circle.cx}, ${circle.cy}), radius=${circle.r}`);
+                        });
+                        addTestResult('Circle Detection', true, `Found ${circles.length} circles`);
+                        return true;
+                    } else {
+                        log(`❌ Circle detection failed: ${data.error}`);
+                        addTestResult('Circle Detection', false, data.error);
+                        return false;
+                    }
+                } else {
+                    const errorText = await response.text();
+                    log(`❌ Circle detection failed: ${response.status} - ${errorText}`);
+                    addTestResult('Circle Detection', false, `HTTP ${response.status}`);
+                    return false;
+                }
+            } catch (error) {
+                log(`❌ Circle detection failed: ${error.message}`);
+                addTestResult('Circle Detection', false, error.message);
+                return false;
+            }
+        }
+        
+        async function runAllTests() {
+            log('🚀 Starting integration tests...');
+            clearLog();
+            
+            const healthCheckPassed = await testHealthCheck();
+            
+            if (healthCheckPassed) {
+                await testCircleDetection();
+            } else {
+                log('❌ Skipping circle detection test due to health check failure');
+                addTestResult('Circle Detection', false, 'Skipped due to health check failure');
+            }
+            
+            log('🏁 Integration tests completed');
+        }
+        
+        // Initialize test image when page loads
+        window.onload = function() {
+            createTestImage();
+            log('Integration test page loaded. Ready to run tests.');
+        };
+    </script>
+</body>
+</html>
+

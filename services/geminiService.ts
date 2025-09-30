@@ -1,11 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { FrameAnalysis } from '../types';
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
+// if (!process.env.API_KEY) {
+//   throw new Error("API_KEY environment variable not set");
+// }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const responseSchema = {
   type: Type.OBJECT,
@@ -41,36 +41,36 @@ const responseSchema = {
 };
 
 export const analyzeFrameWithGemini = async (imageBase64: string): Promise<Omit<FrameAnalysis, 'frame'>> => {
-    const imagePart = { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } };
-    const textPart = {
-      text: `Analyze this microscope image. Identify the two main droplets, the scale bar, and the timestamp.
-      1. Droplets: Find the two most prominent circular droplets. Provide the center coordinates (cx, cy) and the radius (r).
-      2. Scale Bar: Locate the horizontal scale bar. The bar is always horizontal, so its start and end y-coordinates should be identical. Provide the start (x1, y1) and end (x2, y2) coordinates of the line and its text label.
-      3. Timestamp: Read the text that looks like a timestamp (e.g., "Live Time: 0:00:28.255"). Extract only the time value.
-      The origin (0,0) is the top-left corner. For each element, also return a boolean flag (e.g., dropletsFound) indicating if you successfully identified it. If an element is not found, omit its data field and set its 'Found' flag to false.`,
-    };
+    // const imagePart = { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } };
+    // const textPart = {
+    //   text: `Analyze this microscope image. Identify the two main droplets, the scale bar, and the timestamp.
+    //   1. Droplets: Find the two most prominent circular droplets. Provide the center coordinates (cx, cy) and the radius (r).
+    //   2. Scale Bar: Locate the horizontal scale bar. The bar is always horizontal, so its start and end y-coordinates should be identical. Provide the start (x1, y1) and end (x2, y2) coordinates of the line and its text label.
+    //   3. Timestamp: Read the text that looks like a timestamp (e.g., "Live Time: 0:00:28.255"). Extract only the time value.
+    //   The origin (0,0) is the top-left corner. For each element, also return a boolean flag (e.g., dropletsFound) indicating if you successfully identified it. If an element is not found, omit its data field and set its 'Found' flag to false.`,
+    // };
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: { parts: [imagePart, textPart] },
-      config: { responseMimeType: 'application/json', responseSchema: responseSchema },
-    });
+    // const response = await ai.models.generateContent({
+    //   model: 'gemini-2.5-flash',
+    //   contents: { parts: [imagePart, textPart] },
+    //   config: { responseMimeType: 'application/json', responseSchema: responseSchema },
+    // });
 
-    const jsonString = response.text.trim();
-    const result = JSON.parse(jsonString) as Partial<Omit<FrameAnalysis, 'frame'>>;
+    // const jsonString = response.text.trim();
+    // const result = JSON.parse(jsonString) as Partial<Omit<FrameAnalysis, 'frame'>>;
     
-    // Ensure required structures exist to prevent downstream errors
-    if (!result.droplets) result.droplets = [];
-    if (!result.scale) result.scale = {} as any;
-    if (!result.timestamp) result.timestamp = "N/A";
+    // // Ensure required structures exist to prevent downstream errors
+    // if (!result.droplets) result.droplets = [];
+    // if (!result.scale) result.scale = {} as any;
+    // if (!result.timestamp) result.timestamp = "N/A";
 
-    if (result.droplets) {
-      result.droplets.forEach((d: any, index: number) => d.id = index);
-    }
-    if (result.scale && result.scale.x1 !== undefined) {
-       result.scale.y2 = result.scale.y1;
-       result.scale.length = Math.abs(result.scale.x2 - result.scale.x1);
-    }
+    // if (result.droplets) {
+    //   result.droplets.forEach((d: any, index: number) => d.id = index);
+    // }
+    // if (result.scale && result.scale.x1 !== undefined) {
+    //    result.scale.y2 = result.scale.y1;
+    //    result.scale.length = Math.abs(result.scale.x2 - result.scale.x1);
+    // }
 
-    return result as Omit<FrameAnalysis, 'frame'>;
+    // return result as Omit<FrameAnalysis, 'frame'>;
 };

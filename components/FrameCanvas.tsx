@@ -270,7 +270,7 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
-      className="w-full h-auto rounded-lg shadow-md bg-gray-900"
+      className="w-full h-auto rounded-lg shadow-md bg-white"
       style={{ cursor: getCursor() }}
     />
   );

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Conversion Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .status.info { background-color: #e3f2fd; color: #1976d2; }
+        .status.success { background-color: #e8f5e8; color: #2e7d32; }
+        .status.error { background-color: #ffebee; color: #c62828; }
+        .status.warning { background-color: #fff3e0; color: #f57c00; }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #1976D2; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .file-info {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Conversion Test</h1>
+    <p>This page tests the video conversion functionality using FFmpeg.js.</p>
+
+    <div class="container">
+        <h2>1. Upload Video File</h2>
+        <input type="file" id="videoFile" accept="video/*" />
+        <div id="fileInfo" class="file-info" style="display: none;">
+            <h3>File Information:</h3>
+            <div id="fileDetails"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>2. Conversion Status</h2>
+        <div id="status" class="status info">Ready to convert video</div>
+        <div class="progress">
+            <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <div id="progressText">0%</div>
+        <button id="convertBtn" onclick="convertVideo()" disabled>Convert Video</button>
+        <button id="downloadBtn" onclick="downloadConverted()" disabled>Download Converted Video</button>
+    </div>
+
+    <div class="container">
+        <h2>3. Supported Formats</h2>
+        <div>
+            <h3>Supported (No conversion needed):</h3>
+            <ul>
+                <li>MP4 (H.264)</li>
+                <li>WebM</li>
+                <li>OGG</li>
+            </ul>
+            <h3>Requires Conversion:</h3>
+            <ul>
+                <li><strong>AVI (all variants - auto-converted for maximum compatibility)</strong></li>
+                <li>MOV (QuickTime)</li>
+                <li>WMV</li>
+                <li>FLV</li>
+                <li>MKV</li>
+                <li>3GP</li>
+                <li>M4V</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+        import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+        let ffmpeg = null;
+        let selectedFile = null;
+        let convertedBlob = null;
+
+        // Initialize FFmpeg
+        async function initFFmpeg() {
+            if (ffmpeg) return;
+
+            updateStatus('Initializing FFmpeg...', 'info');
+            updateProgress(0);
+
+            try {
+                ffmpeg = new FFmpeg();
+                
+                ffmpeg.on('progress', ({ progress }) => {
+                    updateProgress(Math.round(progress * 100));
+                });
+
+                const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+                await ffmpeg.load({
+                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                });
+
+                updateStatus('FFmpeg initialized successfully!', 'success');
+            } catch (error) {
+                updateStatus(`Failed to initialize FFmpeg: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // File input handler
+        document.getElementById('videoFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            selectedFile = file;
+            displayFileInfo(file);
+            
+            // Check if conversion is needed
+            const needsConversion = checkIfConversionNeeded(file);
+            document.getElementById('convertBtn').disabled = false;
+            
+            if (needsConversion) {
+                updateStatus(`File "${file.name}" needs conversion to MP4`, 'warning');
+            } else {
+                updateStatus(`File "${file.name}" is already in a supported format`, 'success');
+            }
+        });
+
+        // Check if video needs conversion
+        function checkIfConversionNeeded(file) {
+            const mimeType = file.type.toLowerCase();
+            const fileName = file.name.toLowerCase();
+            
+            const supportedFormats = [
+                'video/mp4',
+                'video/webm',
+                'video/ogg',
+                'video/avi',
+            ];
+
+            const unsupportedFormats = [
+                'video/quicktime',
+                'video/x-msvideo',
+                'video/x-ms-wmv',
+                'video/x-flv',
+                'video/x-matroska',
+                'video/3gpp',
+                'video/x-m4v',
+            ];
+
+            if (supportedFormats.includes(mimeType)) {
+                return false;
+            }
+
+            if (unsupportedFormats.includes(mimeType)) {
+                return true;
+            }
+
+            // Check by extension
+            const extension = fileName.split('.').pop()?.toLowerCase();
+            const supportedExtensions = ['mp4', 'webm', 'ogg', 'avi'];
+            const unsupportedExtensions = ['mov', 'wmv', 'flv', 'mkv', '3gp', 'm4v'];
+
+            if (extension && supportedExtensions.includes(extension)) {
+                return false;
+            }
+
+            if (extension && unsupportedExtensions.includes(extension)) {
+                return true;
+            }
+
+            return true; // Default to needing conversion
+        }
+
+        // Display file information
+        function displayFileInfo(file) {
+            const fileInfo = document.getElementById('fileInfo');
+            const fileDetails = document.getElementById('fileDetails');
+            
+            fileDetails.innerHTML = `
+                <p><strong>Name:</strong> ${file.name}</p>
+                <p><strong>Size:</strong> ${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p><strong>Type:</strong> ${file.type || 'Unknown'}</p>
+                <p><strong>Last Modified:</strong> ${new Date(file.lastModified).toLocaleString()}</p>
+            `;
+            
+            fileInfo.style.display = 'block';
+        }
+
+        // Update status message
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Update progress bar
+        function updateProgress(percent) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressBar.style.width = `${percent}%`;
+            progressText.textContent = `${percent}%`;
+        }
+
+        // Convert video
+        window.convertVideo = async function() {
+            if (!selectedFile) {
+                updateStatus('Please select a video file first', 'error');
+                return;
+            }
+
+            try {
+                await initFFmpeg();
+                
+                updateStatus('Starting video conversion...', 'info');
+                updateProgress(0);
+
+                const inputFileName = 'input' + getFileExtension(selectedFile.name);
+                const outputFileName = 'output.mp4';
+
+                // Write input file
+                await ffmpeg.writeFile(inputFileName, await fetchFile(selectedFile));
+
+                // Convert to MP4
+                await ffmpeg.exec([
+                    '-i', inputFileName,
+                    '-c:v', 'libx264',
+                    '-c:a', 'aac',
+                    '-preset', 'fast',
+                    '-crf', '23',
+                    '-movflags', '+faststart',
+                    '-y',
+                    outputFileName
+                ]);
+
+                // Read converted file
+                const data = await ffmpeg.readFile(outputFileName);
+                convertedBlob = new Blob([data], { type: 'video/mp4' });
+
+                // Clean up
+                await ffmpeg.deleteFile(inputFileName);
+                await ffmpeg.deleteFile(outputFileName);
+
+                updateStatus('Video conversion completed successfully!', 'success');
+                updateProgress(100);
+                document.getElementById('downloadBtn').disabled = false;
+
+            } catch (error) {
+                updateStatus(`Conversion failed: ${error.message}`, 'error');
+                updateProgress(0);
+            }
+        };
+
+        // Download converted video
+        window.downloadConverted = function() {
+            if (!convertedBlob) {
+                updateStatus('No converted video available', 'error');
+                return;
+            }
+
+            const url = URL.createObjectURL(convertedBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = getConvertedFileName(selectedFile.name);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            updateStatus('Download started!', 'success');
+        };
+
+        // Helper functions
+        function getFileExtension(filename) {
+            const extension = filename.split('.').pop()?.toLowerCase();
+            return extension ? `.${extension}` : '';
+        }
+
+        function getConvertedFileName(originalName) {
+            const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
+            return `${nameWithoutExt}_converted.mp4`;
+        }
+    </script>
+</body>
+</html>

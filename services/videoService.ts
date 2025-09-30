@@ -1,7 +1,102 @@
-export const extractFramesFromVideo = (
+import { videoConversionService, ConversionProgress } from './videoConversionService';
+
+export interface VideoProcessingProgress {
+  stage: 'checking' | 'converting' | 'extracting' | 'complete' | 'error';
+  progress: number; // 0-100
+  message: string;
+  extractionProgress?: { current: number; total: number };
+}
+
+export const extractFramesFromVideo = async (
   videoFile: File,
   fps: number,
-  onProgress: (progress: { current: number; total: number }) => void
+  onProgress: (progress: VideoProcessingProgress) => void
+): Promise<string[]> => {
+  try {
+    // Check if video needs conversion
+    onProgress({
+      stage: 'checking',
+      progress: 0,
+      message: 'Checking video format...',
+    });
+
+    const formatInfo = videoConversionService.checkVideoFormat(videoFile);
+    let processedFile = videoFile;
+
+    if (formatInfo.needsConversion) {
+      // First, try to use the original file directly
+      onProgress({
+        stage: 'converting',
+        progress: 0,
+        message: `Checking if ${formatInfo.format} can be used directly...`,
+      });
+
+      const canUseDirectly = await videoConversionService.tryDirectPlayback(videoFile);
+      
+      if (canUseDirectly) {
+        onProgress({
+          stage: 'converting',
+          progress: 100,
+          message: `Using ${formatInfo.format} directly (no conversion needed)!`,
+        });
+        processedFile = videoFile;
+      } else {
+        // File is too large or needs conversion
+        const fileSizeMB = videoFile.size / (1024 * 1024);
+        if (fileSizeMB > 1000) {
+          onProgress({
+            stage: 'error',
+            progress: 0,
+            message: `File too large (${fileSizeMB.toFixed(1)}MB). Please use a video under 1000MB or convert it manually to MP4.`,
+          });
+          throw new Error(`File too large: ${fileSizeMB.toFixed(1)}MB. Please use a video under 1000MB or convert it manually to MP4.`);
+        }
+
+        onProgress({
+          stage: 'converting',
+          progress: 0,
+          message: `Converting ${formatInfo.format} to MP4 (this may take a while)...`,
+        });
+
+        try {
+          processedFile = await videoConversionService.convertVideo(
+            videoFile,
+            (conversionProgress: ConversionProgress) => {
+              onProgress({
+                stage: 'converting',
+                progress: conversionProgress.progress,
+                message: conversionProgress.message,
+              });
+            }
+          );
+        } catch (conversionError) {
+          onProgress({
+            stage: 'error',
+            progress: 0,
+            message: `Conversion failed: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}. Please try converting the video manually to MP4.`,
+          });
+          throw new Error(`Video conversion failed: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}. Please try converting the video manually to MP4.`);
+        }
+      }
+    }
+
+    // Extract frames from the processed video
+    return await extractFramesFromProcessedVideo(processedFile, fps, onProgress);
+
+  } catch (error) {
+    onProgress({
+      stage: 'error',
+      progress: 0,
+      message: error instanceof Error ? error.message : 'Unknown error occurred',
+    });
+    throw error;
+  }
+};
+
+const extractFramesFromProcessedVideo = (
+  videoFile: File,
+  fps: number,
+  onProgress: (progress: VideoProcessingProgress) => void
 ): Promise<string[]> => {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
@@ -26,7 +121,13 @@ export const extractFramesFromVideo = (
 
     const seekAndCapture = () => {
         frameCounter++;
-        onProgress({ current: frameCounter, total: totalFrames });
+        onProgress({
+          stage: 'extracting',
+          progress: Math.round((frameCounter / totalFrames) * 100),
+          message: `Extracting frame ${frameCounter} of ${totalFrames}...`,
+          extractionProgress: { current: frameCounter, total: totalFrames },
+        });
+        
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
         frames.push(dataUrl.split(',')[1]);
@@ -36,6 +137,11 @@ export const extractFramesFromVideo = (
             video.currentTime = nextTime;
         } else {
             cleanup();
+            onProgress({
+              stage: 'complete',
+              progress: 100,
+              message: `Successfully extracted ${frames.length} frames`,
+            });
             resolve(frames);
         }
     };
@@ -44,6 +150,14 @@ export const extractFramesFromVideo = (
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       totalFrames = Math.floor(video.duration * fps);
+      
+      onProgress({
+        stage: 'extracting',
+        progress: 0,
+        message: `Starting frame extraction (${totalFrames} frames to extract)...`,
+        extractionProgress: { current: 0, total: totalFrames },
+      });
+      
       video.addEventListener('seeked', seekAndCapture);
       video.currentTime = 0; // Start the process
     };
@@ -70,6 +184,11 @@ export const extractFramesFromVideo = (
         }
       }
       cleanup();
+      onProgress({
+        stage: 'error',
+        progress: 0,
+        message: errorMsg,
+      });
       reject(new Error(errorMsg));
     };
 
