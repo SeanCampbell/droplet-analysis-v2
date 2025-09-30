@@ -1,0 +1,5 @@
+{
+  "name": "Droplet Analysis",
+  "description": "An application to analyze microscope video footage of droplets frame-by-frame using AI. It automatically detects droplet size, scale, and time, allows for manual correction, and exports the data to CSV.",
+  "requestFramePermissions": []
+}
