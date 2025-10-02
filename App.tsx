@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [imageDimensions, setImageDimensions] = useState({ width: 1280, height: 720 });
   const [frameInterval, setFrameInterval] = useState(120);
   const [detectionAlgorithm, setDetectionAlgorithm] = useState<DetectionAlgorithm>('hough');
+  const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2'>('v1');
   const [view, setView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,7 +132,7 @@ const App: React.FC = () => {
 
             if (imageData) {
                 // Use the new comprehensive analysis function
-                analysisResult = await analyzeFrameWithHough(imageData);
+                analysisResult = await analyzeFrameWithHough(imageData, detectionMethod);
             } else {
                 // Fallback if imageData is null
                 analysisResult = {
@@ -445,8 +446,30 @@ const App: React.FC = () => {
                 </select>
               </div>
 
+              {detectionAlgorithm === 'hough' && (
+                <div>
+                  <label htmlFor="detection-method" className="block text-sm font-medium text-gray-700 mb-1">4. Hough Detection Version</label>
+                  <select
+                    id="detection-method"
+                    value={detectionMethod}
+                    onChange={(e) => setDetectionMethod(e.target.value as 'v1' | 'v2')}
+                    disabled={status === 'extracting' || status === 'analyzing'}
+                    className="w-full p-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="v1">V1 - Hough Circles (Computer Vision)</option>
+                    <option value="v2">V2 - Random Values (Testing)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {detectionMethod === 'v1' 
+                      ? 'Uses computer vision algorithms to detect actual droplets' 
+                      : 'Returns random droplet positions for testing purposes'
+                    }
+                  </p>
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">4. Start Analysis</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">5. Start Analysis</label>
                 <button
                   onClick={handleAnalyze}
                   disabled={!videoFile || status === 'extracting' || status === 'analyzing'}
@@ -458,7 +481,7 @@ const App: React.FC = () => {
               </div>
 
               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">5. Export & Download</label>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">6. Export & Download</label>
                  <div className="flex space-x-2">
                     <button
                       onClick={handleExportCSV}

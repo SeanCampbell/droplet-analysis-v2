@@ -34,7 +34,7 @@ def load_ground_truth(json_path: str) -> Dict[str, Any]:
         print(f"❌ Error loading ground truth from {json_path}: {e}")
         return {}
 
-def run_detection_on_frame(image_path: str) -> Dict[str, Any]:
+def run_detection_on_frame(image_path: str, method: str = "v1") -> Dict[str, Any]:
     """Run the droplet detection algorithm on a single frame"""
     try:
         # Load the image
@@ -44,7 +44,7 @@ def run_detection_on_frame(image_path: str) -> Dict[str, Any]:
             return {}
         
         # Run the comprehensive analysis
-        result = analyze_frame_comprehensive(image, min_radius=20, max_radius=500)
+        result = analyze_frame_comprehensive(image, min_radius=20, max_radius=500, method=method)
         
         return result
     except Exception as e:
@@ -133,9 +133,9 @@ def calculate_scale_loss(predicted_scale: Dict, ground_truth_scale: Dict) -> flo
     
     return x1_diff + y1_diff + x2_diff + y2_diff
 
-def evaluate_frame(image_path: str, ground_truth_path: str) -> Dict[str, Any]:
+def evaluate_frame(image_path: str, ground_truth_path: str, method: str = "v1") -> Dict[str, Any]:
     """Evaluate a single frame"""
-    print(f"🔍 Evaluating {os.path.basename(image_path)}...")
+    print(f"🔍 Evaluating {os.path.basename(image_path)} with method {method}...")
     
     # Load ground truth
     ground_truth = load_ground_truth(ground_truth_path)
@@ -143,7 +143,7 @@ def evaluate_frame(image_path: str, ground_truth_path: str) -> Dict[str, Any]:
         return {"error": "Could not load ground truth"}
     
     # Run detection
-    prediction = run_detection_on_frame(image_path)
+    prediction = run_detection_on_frame(image_path, method)
     if not prediction:
         return {"error": "Could not run detection"}
     
@@ -184,6 +184,8 @@ def main():
                        help='Output file for evaluation results')
     parser.add_argument('--verbose', action='store_true',
                        help='Print detailed results for each frame')
+    parser.add_argument('--method', default='v1', choices=['v1', 'v2'],
+                       help='Detection method: v1 (Hough circles) or v2 (random values)')
     
     args = parser.parse_args()
     
@@ -196,6 +198,7 @@ def main():
     print("=" * 50)
     print(f"📁 Evaluation directory: {eval_dir}")
     print(f"📊 Output file: {args.output}")
+    print(f"🔧 Detection method: {args.method}")
     print()
     
     # Find all frame files
@@ -220,7 +223,7 @@ def main():
     total_droplet_count_diff = 0
     
     for i, (image_path, json_path) in enumerate(frame_files):
-        result = evaluate_frame(str(image_path), str(json_path))
+        result = evaluate_frame(str(image_path), str(json_path), args.method)
         
         if "error" in result:
             print(f"❌ {result['frame']}: {result['error']}")

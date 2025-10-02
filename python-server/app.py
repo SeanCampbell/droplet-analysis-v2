@@ -334,6 +334,52 @@ def detect_circles_hough(image, min_radius=20, max_radius=500, dp=1, min_dist=50
     
     return detected_circles
 
+def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
+    """
+    Alternative circle detection method (v2) - currently returns random values for testing
+    
+    Args:
+        image: OpenCV image
+        min_radius: Minimum circle radius
+        max_radius: Maximum circle radius
+        dp: Inverse ratio of accumulator resolution (unused in v2)
+        min_dist: Minimum distance between circle centers (unused in v2)
+        param1: Upper threshold for edge detection (unused in v2)
+        param2: Accumulator threshold for center detection (unused in v2)
+    
+    Returns:
+        List of detected circles with format [cx, cy, r]
+    """
+    height, width = image.shape[:2]
+    
+    # For now, return random values for two droplets
+    # This is for testing the method toggle functionality
+    np.random.seed(42)  # Fixed seed for reproducible results
+    
+    # Generate two random droplets within the image bounds
+    droplets = []
+    for i in range(2):
+        # Random center position (with some margin from edges)
+        margin = 100
+        cx = np.random.randint(margin, width - margin)
+        cy = np.random.randint(margin, height - margin)
+        
+        # Random radius within the specified range
+        r = np.random.randint(min_radius, max_radius)
+        
+        droplets.append({
+            'cx': cx,
+            'cy': cy,
+            'r': r,
+            'id': i
+        })
+    
+    logger.debug(f"V2 Detection: Generated {len(droplets)} random droplets")
+    for i, droplet in enumerate(droplets):
+        logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
+    
+    return droplets
+
 def detect_timestamp(image):
     """
     Detect timestamp in the image using improved OCR preprocessing
@@ -879,7 +925,7 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
+def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85, method="v1"):
     """
     Comprehensive frame analysis including droplets, scale bar, and timestamp
     
@@ -891,12 +937,18 @@ def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_
         min_dist: Minimum distance between circle centers
         param1: Upper threshold for edge detection
         param2: Accumulator threshold for center detection
+        method: Detection method ("v1" for original, "v2" for alternative)
     
     Returns:
         Dictionary matching the Gemini service format
     """
-    # Detect droplets
-    droplets = detect_circles_hough(image, min_radius, max_radius, dp, min_dist, param1, param2)
+    # Detect droplets using selected method
+    if method == "v2":
+        droplets = detect_circles_v2(image, min_radius, max_radius, dp, min_dist, param1, param2)
+        logger.debug(f"Using detection method: v2 (random values)")
+    else:
+        droplets = detect_circles_hough(image, min_radius, max_radius, dp, min_dist, param1, param2)
+        logger.debug(f"Using detection method: v1 (Hough circles)")
     
     # Detect timestamp
     timestamp, timestamp_found = detect_timestamp(image)
@@ -1028,7 +1080,8 @@ def analyze_frame():
     {
         "image": "base64_encoded_image",
         "min_radius": 20,
-        "max_radius": 500
+        "max_radius": 500,
+        "method": "v1"  // "v1" for Hough circles, "v2" for random values
     }
     """
     logger.debug("Received analyze-frame request")
@@ -1043,7 +1096,8 @@ def analyze_frame():
         # Get parameters with defaults
         min_radius = data.get('min_radius', 20)
         max_radius = data.get('max_radius', 500)
-        logger.debug(f"Analysis parameters: min_radius={min_radius}, max_radius={max_radius}")
+        method = data.get('method', 'v1')
+        logger.debug(f"Analysis parameters: min_radius={min_radius}, max_radius={max_radius}, method={method}")
         
         # Convert base64 image to OpenCV format
         logger.debug("Converting base64 image to OpenCV format")
@@ -1055,7 +1109,8 @@ def analyze_frame():
         result = analyze_frame_comprehensive(
             image,
             min_radius=min_radius,
-            max_radius=max_radius
+            max_radius=max_radius,
+            method=method
         )
         
         droplet_count = len(result['droplets'])
@@ -1153,20 +1208,32 @@ if os.getenv('FLASK_ENV') == 'development':
             min_dist = data.get('min_dist', 50)
             param1 = data.get('param1', 50)
             param2 = data.get('param2', 85)
+            method = data.get('method', 'v1')
             
             # Convert base64 image to OpenCV format
             image = base64_to_image(data['image'])
             
-            # Detect circles with detailed logging
-            circles = detect_circles_hough(
-                image,
-                min_radius=min_radius,
-                max_radius=max_radius,
-                dp=dp,
-                min_dist=min_dist,
-                param1=param1,
-                param2=param2
-            )
+            # Detect circles with detailed logging using selected method
+            if method == "v2":
+                circles = detect_circles_v2(
+                    image,
+                    min_radius=min_radius,
+                    max_radius=max_radius,
+                    dp=dp,
+                    min_dist=min_dist,
+                    param1=param1,
+                    param2=param2
+                )
+            else:
+                circles = detect_circles_hough(
+                    image,
+                    min_radius=min_radius,
+                    max_radius=max_radius,
+                    dp=dp,
+                    min_dist=min_dist,
+                    param1=param1,
+                    param2=param2
+                )
             
             result = {
                 "success": True,
@@ -1181,7 +1248,8 @@ if os.getenv('FLASK_ENV') == 'development':
                     "dp": dp,
                     "min_dist": min_dist,
                     "param1": param1,
-                    "param2": param2
+                    "param2": param2,
+                    "method": method
                 },
                 "circles": [{"id": i, "cx": int(c[0]), "cy": int(c[1]), "r": int(c[2])} for i, c in enumerate(circles)],
                 "count": len(circles)

@@ -39,7 +39,7 @@ const checkPythonServerHealth = async (): Promise<boolean> => {
 };
 
 // Call Python API for comprehensive frame analysis
-const analyzeFrameWithPythonAPI = async (imageData: ImageData): Promise<Omit<FrameAnalysis, 'frame'>> => {
+const analyzeFrameWithPythonAPI = async (imageData: ImageData, method: string = 'v1'): Promise<Omit<FrameAnalysis, 'frame'>> => {
     const base64Image = imageDataToBase64(imageData);
     
     const requestBody = {
@@ -49,7 +49,8 @@ const analyzeFrameWithPythonAPI = async (imageData: ImageData): Promise<Omit<Fra
         dp: 1,
         min_dist: 50,
         param1: 50,
-        param2: 85
+        param2: 85,
+        method: method
     };
     
     const apiUrl = `${PYTHON_API_BASE_URL}${API_PREFIX}/analyze-frame`;
@@ -192,14 +193,14 @@ export const detectCirclesWithHough = async (imageData: ImageData): Promise<Drop
 };
 
 // New function that provides comprehensive analysis matching Gemini service format
-export const analyzeFrameWithHough = async (imageData: ImageData): Promise<Omit<FrameAnalysis, 'frame'>> => {
+export const analyzeFrameWithHough = async (imageData: ImageData, method: string = 'v1'): Promise<Omit<FrameAnalysis, 'frame'>> => {
     try {
         // Check if Python server is available
         const isPythonServerAvailable = await checkPythonServerHealth();
         
         if (isPythonServerAvailable) {
-            console.log('Using Python API for comprehensive frame analysis');
-            return await analyzeFrameWithPythonAPI(imageData);
+            console.log(`Using Python API for comprehensive frame analysis with method: ${method}`);
+            return await analyzeFrameWithPythonAPI(imageData, method);
         } else {
             console.log('Python API not available, falling back to Web Worker for droplets only');
             // Fallback to Web Worker for droplets only, provide defaults for scale and timestamp
