@@ -1,0 +1,279 @@
+{
+  "evaluation_summary": {
+    "num_frames": 4,
+    "total_droplet_loss": 43272.09335509392,
+    "total_scale_loss": 17574.0,
+    "total_loss": 60846.09335509392,
+    "avg_droplet_loss": 10818.02333877348,
+    "avg_scale_loss": 4393.5,
+    "avg_total_loss": 15211.52333877348,
+    "total_droplet_count_diff": 0,
+    "avg_droplet_count_diff": 0.0
+  },
+  "frame_results": [
+    {
+      "frame": "frame_0001.jpeg",
+      "droplet_loss": 11937.284514077424,
+      "scale_loss": 17431,
+      "total_loss": 29368.284514077423,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 1,
+        "timestamp": "111.218",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1188.8457519821352,
+            "cy": 513.6530136530138,
+            "id": 0,
+            "r": 289.91643504765534
+          },
+          {
+            "cx": 664.3738091823566,
+            "cy": 535.5061605061607,
+            "id": 1,
+            "r": 305.94543539069707
+          }
+        ],
+        "scale": {
+          "label": "50 \u00b5m",
+          "length": 189,
+          "x1": 1490,
+          "x2": 1679,
+          "y1": 1044,
+          "y2": 1044
+        }
+      },
+      "prediction": {
+        "timestamp": "111.218",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 648,
+            "cy": 553,
+            "r": 232,
+            "id": 0
+          },
+          {
+            "cx": 1150,
+            "cy": 531,
+            "r": 226,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1593,
+          "y1": 1051,
+          "x2": 1761,
+          "y2": 1051,
+          "label": "50 \u00b5m",
+          "length": 168
+        }
+      }
+    },
+    {
+      "frame": "frame_0000.jpeg",
+      "droplet_loss": 9229.121737970869,
+      "scale_loss": 8,
+      "total_loss": 9237.121737970869,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 0,
+        "timestamp": "4.480",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 865.421387255605,
+            "cy": 861.8464868464871,
+            "id": 0,
+            "r": 314.68316567986733
+          },
+          {
+            "cx": 1370.9540654542807,
+            "cy": 455.3779553779556,
+            "id": 1,
+            "r": 282.63585734569904
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 301,
+          "x1": 1493,
+          "x2": 1794,
+          "y1": 1043,
+          "y2": 1043
+        }
+      },
+      "prediction": {
+        "timestamp": "4.480",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1349,
+            "cy": 474,
+            "r": 235,
+            "id": 0
+          },
+          {
+            "cx": 850,
+            "cy": 809,
+            "r": 259,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1491,
+          "y1": 1043,
+          "x2": 1796,
+          "y2": 1043,
+          "label": "100 \u00b5m",
+          "length": 305
+        }
+      }
+    },
+    {
+      "frame": "frame_0003.jpeg",
+      "droplet_loss": 10817.409495482161,
+      "scale_loss": 5,
+      "total_loss": 10822.409495482161,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 3,
+        "timestamp": "324.893",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1181.5614194432494,
+            "cy": 512.1961371961371,
+            "id": 0,
+            "r": 304.48510012542715
+          },
+          {
+            "cx": 655.6326101356937,
+            "cy": 534.0492840492841,
+            "id": 1,
+            "r": 288.46324752249336
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 302,
+          "x1": 1493,
+          "x2": 1795,
+          "y1": 1052,
+          "y2": 1052
+        }
+      },
+      "prediction": {
+        "timestamp": "324.893",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1156,
+            "cy": 531,
+            "r": 250,
+            "id": 0
+          },
+          {
+            "cx": 645,
+            "cy": 550,
+            "r": 208,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1491,
+          "y1": 1052,
+          "x2": 1796,
+          "y2": 1052,
+          "label": "100 \u00b5m",
+          "length": 305
+        }
+      }
+    },
+    {
+      "frame": "frame_0002.jpeg",
+      "droplet_loss": 11288.277607563465,
+      "scale_loss": 130,
+      "total_loss": 11418.277607563465,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 2,
+        "timestamp": "218.017",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1187.3888854743582,
+            "cy": 516.5667665667665,
+            "id": 0,
+            "r": 296.78623723230464
+          },
+          {
+            "cx": 661.4600761668023,
+            "cy": 534.0492840492841,
+            "id": 1,
+            "r": 298.66118745465803
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 307,
+          "x1": 1490,
+          "x2": 1797,
+          "y1": 1051,
+          "y2": 1051
+        }
+      },
+      "prediction": {
+        "timestamp": "218.017",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1158,
+            "cy": 531,
+            "r": 241,
+            "id": 0
+          },
+          {
+            "cx": 648,
+            "cy": 550,
+            "r": 217,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1491,
+          "y1": 1043,
+          "x2": 1796,
+          "y2": 1043,
+          "label": "100 \u00b5m",
+          "length": 305
+        }
+      }
+    }
+  ]
+}
