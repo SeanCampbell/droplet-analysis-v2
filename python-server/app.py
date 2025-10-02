@@ -334,9 +334,49 @@ def detect_circles_hough(image, min_radius=20, max_radius=500, dp=1, min_dist=50
     
     return detected_circles
 
+def refine_radius(gray_image, center_x, center_y, initial_radius):
+    """
+    Refine the radius of a detected circle using edge detection
+    """
+    height, width = gray_image.shape
+    
+    # Define search range around initial radius
+    min_r = max(initial_radius - 50, 50)
+    max_r = min(initial_radius + 50, min(width, height) // 2)
+    
+    best_radius = initial_radius
+    best_score = 0
+    
+    # Sample points on circles of different radii
+    for test_radius in range(int(min_r), int(max_r), 5):
+        # Sample points on the circle
+        angles = np.linspace(0, 2*np.pi, 36)  # 36 points around the circle
+        edge_scores = []
+        
+        for angle in angles:
+            x = int(center_x + test_radius * np.cos(angle))
+            y = int(center_y + test_radius * np.sin(angle))
+            
+            if 0 <= x < width and 0 <= y < height:
+                # Calculate gradient magnitude at this point
+                if x > 0 and x < width-1 and y > 0 and y < height-1:
+                    gx = int(gray_image[y, x+1]) - int(gray_image[y, x-1])
+                    gy = int(gray_image[y+1, x]) - int(gray_image[y-1, x])
+                    gradient_mag = np.sqrt(gx*gx + gy*gy)
+                    edge_scores.append(gradient_mag)
+        
+        if edge_scores:
+            # Score based on average edge strength
+            avg_edge_strength = np.mean(edge_scores)
+            if avg_edge_strength > best_score:
+                best_score = avg_edge_strength
+                best_radius = test_radius
+    
+    return best_radius
+
 def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
-    Alternative circle detection method (v2) - currently returns random values for testing
+    Alternative circle detection method (v2) - Machine learning-inspired approach
     
     Args:
         image: OpenCV image
@@ -352,33 +392,730 @@ def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     """
     height, width = image.shape[:2]
     
-    # For now, return random values for two droplets
-    # This is for testing the method toggle functionality
-    np.random.seed(42)  # Fixed seed for reproducible results
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
     
-    # Generate two random droplets within the image bounds
-    droplets = []
-    for i in range(2):
-        # Random center position (with some margin from edges)
-        margin = 100
-        cx = np.random.randint(margin, width - margin)
-        cy = np.random.randint(margin, height - margin)
-        
-        # Random radius within the specified range
-        r = np.random.randint(min_radius, max_radius)
-        
-        droplets.append({
-            'cx': cx,
-            'cy': cy,
-            'r': r,
-            'id': i
-        })
+    logger.debug(f"V2 Detection: Starting ML-inspired approach on {width}x{height} image")
     
-    logger.debug(f"V2 Detection: Generated {len(droplets)} random droplets")
-    for i, droplet in enumerate(droplets):
+    # Step 1: Feature extraction - create feature maps
+    feature_maps = extract_circle_features(gray)
+    
+    # Step 2: Candidate generation - find potential circle centers
+    candidates = generate_circle_candidates(feature_maps, gray)
+    
+    # Step 3: Classification - score each candidate
+    scored_candidates = classify_circle_candidates(candidates, gray)
+    
+    # Step 4: Non-maximum suppression - select best non-overlapping circles
+    final_droplets = non_maximum_suppression(scored_candidates)
+    
+    logger.debug(f"V2 Detection: Found {len(final_droplets)} droplets using ML-inspired approach")
+    for i, droplet in enumerate(final_droplets):
         logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
-    return droplets
+    return final_droplets
+
+def detect_circles_enhanced_hough(gray):
+    """Enhanced Hough circle detection with optimized parameters for large circles"""
+    circles = []
+    
+    # Optimized parameters for large circles (based on ground truth analysis)
+    param_combinations = [
+        (1, 30, 50, 30),  # dp, min_dist, param1, param2
+        (1, 50, 50, 25),
+        (1, 100, 50, 20),
+        (2, 50, 50, 30),
+    ]
+    
+    for dp, min_dist, param1, param2 in param_combinations:
+        detected = cv2.HoughCircles(
+            gray, cv2.HOUGH_GRADIENT, dp=dp, minDist=min_dist,
+            param1=param1, param2=param2, minRadius=200, maxRadius=500
+        )
+        
+        if detected is not None:
+            for circle in detected[0]:
+                x, y, r = circle
+                # Calculate confidence based on circle quality
+                confidence = calculate_circle_confidence(gray, x, y, r)
+                circles.append((x, y, r, confidence))
+    
+    return circles
+
+def detect_circles_template_matching(gray):
+    """Template matching approach"""
+    circles = []
+    template_radii = [280, 300, 320, 340]
+    
+    for template_radius in template_radii:
+        # Create gradient template
+        template_size = template_radius * 2 + 1
+        template = np.zeros((template_size, template_size), dtype=np.uint8)
+        center = template_radius
+        
+        for y in range(template_size):
+            for x in range(template_size):
+                dist = np.sqrt((x - center)**2 + (y - center)**2)
+                if dist <= template_radius:
+                    intensity = int(255 * (1 - dist / template_radius))
+                    template[y, x] = intensity
+        
+        result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
+        locations = np.where(result >= 0.25)
+        
+        for pt in zip(*locations[::-1]):
+            x, y = pt
+            center_x = x + template_radius
+            center_y = y + template_radius
+            
+            if (template_radius <= center_x < gray.shape[1] - template_radius and 
+                template_radius <= center_y < gray.shape[0] - template_radius):
+                confidence = result[y, x]
+                circles.append((center_x, center_y, template_radius, confidence))
+    
+    return circles
+
+def detect_circles_contour_based(gray):
+    """Contour-based circle detection"""
+    circles = []
+    
+    # Apply preprocessing
+    blurred = cv2.GaussianBlur(gray, (15, 15), 0)
+    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        perimeter = cv2.arcLength(contour, True)
+        
+        if perimeter == 0:
+            continue
+            
+        circularity = 4 * np.pi * area / (perimeter * perimeter)
+        
+        if circularity > 0.7 and area > 10000:
+            (x, y), radius = cv2.minEnclosingCircle(contour)
+            
+            if 200 <= radius <= 500:
+                confidence = circularity * (area / 100000)  # Normalize confidence
+                circles.append((x, y, radius, confidence))
+    
+    return circles
+
+def calculate_circle_confidence(gray, x, y, r):
+    """Calculate confidence score for a detected circle"""
+    height, width = gray.shape
+    
+    # Sample points on the circle edge
+    angles = np.linspace(0, 2*np.pi, 36)
+    edge_intensities = []
+    
+    for angle in angles:
+        px = int(x + r * np.cos(angle))
+        py = int(y + r * np.sin(angle))
+        
+        if 0 <= px < width and 0 <= py < height:
+            edge_intensities.append(gray[py, px])
+    
+    if edge_intensities:
+        # Calculate edge strength (variance in intensities)
+        edge_strength = np.var(edge_intensities)
+        return min(1.0, edge_strength / 1000)  # Normalize to 0-1
+    
+    return 0.0
+
+def extract_circle_features(gray):
+    """Extract features that are characteristic of circular droplets"""
+    features = {}
+    
+    # Feature 1: Edge strength map
+    edges = cv2.Canny(gray, 50, 150)
+    features['edges'] = edges
+    
+    # Feature 2: Gradient magnitude
+    grad_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    gradient_magnitude = np.sqrt(grad_x**2 + grad_y**2)
+    features['gradient'] = np.uint8(gradient_magnitude / gradient_magnitude.max() * 255)
+    
+    # Feature 3: Laplacian (second derivative)
+    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+    features['laplacian'] = np.uint8(np.absolute(laplacian))
+    
+    # Feature 4: Local contrast
+    kernel = np.ones((15, 15), np.float32) / 225
+    local_mean = cv2.filter2D(gray.astype(np.float32), -1, kernel)
+    local_contrast = np.abs(gray.astype(np.float32) - local_mean)
+    features['contrast'] = np.uint8(local_contrast)
+    
+    # Feature 5: Circular Hough accumulator (simplified)
+    features['hough_accumulator'] = create_circular_accumulator(gray)
+    
+    return features
+
+def create_circular_accumulator(gray):
+    """Create a simplified circular Hough accumulator"""
+    height, width = gray.shape
+    accumulator = np.zeros((height, width), dtype=np.float32)
+    
+    # Sample radii around expected droplet size
+    radii = [280, 300, 320, 340]
+    
+    for r in radii:
+        # Create circle template
+        angles = np.linspace(0, 2*np.pi, 36)
+        
+        for y in range(height):
+            for x in range(width):
+                # Check if this could be a circle center
+                circle_points = []
+                for angle in angles:
+                    px = int(x + r * np.cos(angle))
+                    py = int(y + r * np.sin(angle))
+                    if 0 <= px < width and 0 <= py < height:
+                        circle_points.append((px, py))
+                
+                if len(circle_points) > 30:  # Most of the circle is in bounds
+                    # Calculate edge strength along the circle
+                    edge_strength = 0
+                    for px, py in circle_points:
+                        if px > 0 and px < width-1 and py > 0 and py < height-1:
+                            gx = int(gray[py, px+1]) - int(gray[py, px-1])
+                            gy = int(gray[py+1, px]) - int(gray[py-1, px])
+                            edge_strength += np.sqrt(gx*gx + gy*gy)
+                    
+                    accumulator[y, x] += edge_strength / len(circle_points)
+    
+    # Normalize accumulator
+    if accumulator.max() > 0:
+        accumulator = accumulator / accumulator.max() * 255
+    
+    return np.uint8(accumulator)
+
+def generate_circle_candidates(feature_maps, gray):
+    """Generate potential circle center candidates based on feature maps"""
+    candidates = []
+    height, width = gray.shape
+    
+    # Combine feature maps to find candidate centers
+    combined_score = np.zeros((height, width), dtype=np.float32)
+    
+    # Weight different features
+    weights = {
+        'edges': 0.3,
+        'gradient': 0.2,
+        'laplacian': 0.2,
+        'contrast': 0.1,
+        'hough_accumulator': 0.2
+    }
+    
+    for feature_name, weight in weights.items():
+        if feature_name in feature_maps:
+            feature = feature_maps[feature_name].astype(np.float32) / 255.0
+            combined_score += weight * feature
+    
+    # Find local maxima in combined score (simple implementation)
+    local_maxima = find_local_maxima(combined_score, size=50)
+    
+    # Threshold to get strong candidates
+    threshold = np.percentile(combined_score[local_maxima], 80) if np.any(local_maxima) else 0.5
+    
+    # Extract candidate positions
+    candidate_positions = np.where((local_maxima) & (combined_score > threshold))
+    
+    for y, x in zip(candidate_positions[0], candidate_positions[1]):
+        candidates.append({
+            'x': x,
+            'y': y,
+            'score': combined_score[y, x]
+        })
+    
+    return candidates
+
+def find_local_maxima(image, size=50):
+    """Find local maxima in an image (simple implementation)"""
+    height, width = image.shape
+    local_maxima = np.zeros_like(image, dtype=bool)
+    
+    half_size = size // 2
+    
+    for y in range(half_size, height - half_size):
+        for x in range(half_size, width - half_size):
+            # Check if current pixel is maximum in its neighborhood
+            center_value = image[y, x]
+            is_maximum = True
+            
+            for dy in range(-half_size, half_size + 1):
+                for dx in range(-half_size, half_size + 1):
+                    if dx == 0 and dy == 0:
+                        continue
+                    neighbor_value = image[y + dy, x + dx]
+                    if neighbor_value >= center_value:
+                        is_maximum = False
+                        break
+                if not is_maximum:
+                    break
+            
+            local_maxima[y, x] = is_maximum
+    
+    return local_maxima
+
+def classify_circle_candidates(candidates, gray):
+    """Classify and score circle candidates"""
+    scored_candidates = []
+    
+    for candidate in candidates:
+        x, y = candidate['x'], candidate['y']
+        
+        # Test different radii around the expected size
+        best_radius = 300
+        best_score = 0
+        
+        for radius in [280, 300, 320, 340]:
+            score = calculate_circle_quality_score(gray, x, y, radius)
+            if score > best_score:
+                best_score = score
+                best_radius = radius
+        
+        if best_score > 0.3:  # Minimum quality threshold
+            scored_candidates.append({
+                'x': x,
+                'y': y,
+                'radius': best_radius,
+                'score': best_score * candidate['score']  # Combine with candidate score
+            })
+    
+    return scored_candidates
+
+def calculate_circle_quality_score(gray, x, y, radius):
+    """Calculate quality score for a potential circle"""
+    height, width = gray.shape
+    
+    # Check bounds
+    if (radius >= x or radius >= y or 
+        x + radius >= width or y + radius >= height):
+        return 0.0
+    
+    # Sample points on the circle
+    angles = np.linspace(0, 2*np.pi, 36)
+    edge_scores = []
+    intensity_scores = []
+    
+    for angle in angles:
+        px = int(x + radius * np.cos(angle))
+        py = int(y + radius * np.sin(angle))
+        
+        if 0 <= px < width and 0 <= py < height:
+            # Edge strength
+            if px > 0 and px < width-1 and py > 0 and py < height-1:
+                gx = int(gray[py, px+1]) - int(gray[py, px-1])
+                gy = int(gray[py+1, px]) - int(gray[py-1, px])
+                edge_strength = np.sqrt(gx*gx + gy*gy)
+                edge_scores.append(edge_strength)
+            
+            # Intensity
+            intensity_scores.append(gray[py, px])
+    
+    if not edge_scores or not intensity_scores:
+        return 0.0
+    
+    # Calculate scores
+    avg_edge_strength = np.mean(edge_scores)
+    intensity_variance = np.var(intensity_scores)
+    
+    # Center intensity (should be different from edge)
+    center_intensity = gray[y, x] if 0 <= y < height and 0 <= x < width else 0
+    edge_avg_intensity = np.mean(intensity_scores)
+    center_edge_contrast = abs(center_intensity - edge_avg_intensity) / 255.0
+    
+    # Combined score
+    edge_score = min(1.0, avg_edge_strength / 100.0)
+    variance_score = min(1.0, intensity_variance / 1000.0)
+    contrast_score = center_edge_contrast
+    
+    combined_score = edge_score * 0.5 + variance_score * 0.3 + contrast_score * 0.2
+    
+    return combined_score
+
+def non_maximum_suppression(candidates):
+    """Apply non-maximum suppression to select best non-overlapping circles"""
+    if not candidates:
+        return []
+    
+    # Sort by score
+    candidates.sort(key=lambda c: c['score'], reverse=True)
+    
+    final_droplets = []
+    min_distance = 200
+    
+    for candidate in candidates:
+        x, y, radius, score = candidate['x'], candidate['y'], candidate['radius'], candidate['score']
+        
+        # Check for overlap with existing detections
+        is_duplicate = False
+        for existing in final_droplets:
+            existing_x, existing_y = existing['cx'], existing['cy']
+            distance = np.sqrt((x - existing_x)**2 + (y - existing_y)**2)
+            if distance < min_distance:
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            # Refine radius
+            refined_radius = refine_radius(gray, x, y, radius)
+            
+            final_droplets.append({
+                'cx': int(x),
+                'cy': int(y),
+                'r': int(refined_radius),
+                'id': len(final_droplets)
+            })
+            
+            # Limit to 2 droplets
+            if len(final_droplets) >= 2:
+                break
+    
+    return final_droplets
+
+def create_preprocessing_pipeline(gray):
+    """Create multiple preprocessed versions of the image for different detection methods"""
+    preprocessed = {}
+    
+    # Original grayscale
+    preprocessed['original'] = gray
+    
+    # Gaussian blur for noise reduction
+    preprocessed['blurred'] = cv2.GaussianBlur(gray, (9, 9), 0)
+    
+    # Bilateral filter for edge-preserving smoothing
+    preprocessed['bilateral'] = cv2.bilateralFilter(gray, 9, 75, 75)
+    
+    # Adaptive histogram equalization
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    preprocessed['clahe'] = clahe.apply(gray)
+    
+    # Edge detection using Canny
+    preprocessed['edges'] = cv2.Canny(gray, 50, 150)
+    
+    # Morphological operations for shape enhancement
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    preprocessed['morph'] = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+    
+    # Laplacian for edge enhancement
+    preprocessed['laplacian'] = cv2.Laplacian(gray, cv2.CV_64F)
+    preprocessed['laplacian'] = np.uint8(np.absolute(preprocessed['laplacian']))
+    
+    return preprocessed
+
+def detect_circles_advanced_template_matching(preprocessed_images):
+    """Advanced template matching with multiple preprocessing variants"""
+    circles = []
+    template_radii = [270, 290, 310, 330, 350]  # Expanded range
+    
+    for template_radius in template_radii:
+        # Create multiple template variants
+        templates = create_advanced_templates(template_radius)
+        
+        for template_name, template in templates.items():
+            for img_name, img in preprocessed_images.items():
+                if img_name in ['edges', 'laplacian']:  # Skip edge images for template matching
+                    continue
+                    
+                result = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+                locations = np.where(result >= 0.2)  # Lower threshold for more detections
+                
+                for pt in zip(*locations[::-1]):
+                    x, y = pt
+                    center_x = x + template_radius
+                    center_y = y + template_radius
+                    
+                    if (template_radius <= center_x < img.shape[1] - template_radius and 
+                        template_radius <= center_y < img.shape[0] - template_radius):
+                        confidence = result[y, x]
+                        # Boost confidence for certain template/image combinations
+                        if template_name == 'gradient' and img_name == 'bilateral':
+                            confidence *= 1.2
+                        circles.append((center_x, center_y, template_radius, confidence))
+    
+    return circles
+
+def create_advanced_templates(radius):
+    """Create multiple advanced template patterns"""
+    templates = {}
+    size = radius * 2 + 1
+    center = radius
+    
+    # Gradient template (darker edges, lighter center)
+    template = np.zeros((size, size), dtype=np.uint8)
+    for y in range(size):
+        for x in range(size):
+            dist = np.sqrt((x - center)**2 + (y - center)**2)
+            if dist <= radius:
+                intensity = int(255 * (1 - dist / radius))
+                template[y, x] = intensity
+    templates['gradient'] = template
+    
+    # Ring template (dark ring, light center and outside)
+    template = np.ones((size, size), dtype=np.uint8) * 255
+    for y in range(size):
+        for x in range(size):
+            dist = np.sqrt((x - center)**2 + (y - center)**2)
+            if radius * 0.7 <= dist <= radius:
+                template[y, x] = 0
+    templates['ring'] = template
+    
+    # Gaussian template
+    template = np.zeros((size, size), dtype=np.uint8)
+    sigma = radius / 3
+    for y in range(size):
+        for x in range(size):
+            dist = np.sqrt((x - center)**2 + (y - center)**2)
+            if dist <= radius:
+                intensity = int(255 * np.exp(-(dist**2) / (2 * sigma**2)))
+                template[y, x] = intensity
+    templates['gaussian'] = template
+    
+    # Inverted gradient
+    template = np.zeros((size, size), dtype=np.uint8)
+    for y in range(size):
+        for x in range(size):
+            dist = np.sqrt((x - center)**2 + (y - center)**2)
+            if dist <= radius:
+                intensity = int(255 * (dist / radius))
+                template[y, x] = intensity
+    templates['inverted'] = template
+    
+    return templates
+
+def detect_circles_feature_based(preprocessed_images):
+    """Feature-based circle detection using local binary patterns"""
+    circles = []
+    
+    # Use CLAHE enhanced image for feature detection
+    img = preprocessed_images['clahe']
+    
+    # Create circular feature templates
+    for radius in [280, 300, 320, 340]:
+        # Sample circular features
+        angles = np.linspace(0, 2*np.pi, 16)
+        feature_scores = []
+        
+        # Grid search for potential centers
+        step = 50
+        for y in range(radius, img.shape[0] - radius, step):
+            for x in range(radius, img.shape[1] - radius, step):
+                # Calculate feature score
+                score = calculate_circular_feature_score(img, x, y, radius, angles)
+                if score > 0.3:
+                    feature_scores.append((x, y, radius, score))
+        
+        circles.extend(feature_scores)
+    
+    return circles
+
+def calculate_circular_feature_score(img, x, y, radius, angles):
+    """Calculate feature score for a circular region"""
+    intensities = []
+    gradients = []
+    
+    for angle in angles:
+        px = int(x + radius * np.cos(angle))
+        py = int(y + radius * np.sin(angle))
+        
+        if 0 <= px < img.shape[1] and 0 <= py < img.shape[0]:
+            intensities.append(img[py, px])
+            
+            # Calculate gradient
+            if px > 0 and px < img.shape[1]-1 and py > 0 and py < img.shape[0]-1:
+                gx = int(img[py, px+1]) - int(img[py, px-1])
+                gy = int(img[py+1, px]) - int(img[py-1, px])
+                gradient_mag = np.sqrt(gx*gx + gy*gy)
+                gradients.append(gradient_mag)
+    
+    if not intensities or not gradients:
+        return 0.0
+    
+    # Score based on intensity variance and gradient strength
+    intensity_var = np.var(intensities)
+    avg_gradient = np.mean(gradients)
+    
+    # Normalize and combine scores
+    score = (intensity_var / 1000) * (avg_gradient / 100)
+    return min(1.0, score)
+
+def detect_circles_enhanced_contour(preprocessed_images):
+    """Enhanced contour-based detection with morphological operations"""
+    circles = []
+    
+    # Use morphological preprocessed image
+    img = preprocessed_images['morph']
+    
+    # Multiple thresholding approaches
+    thresholds = [
+        cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1],
+        cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2),
+        cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 11, 2)
+    ]
+    
+    for thresh in thresholds:
+        # Morphological operations to clean up
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            perimeter = cv2.arcLength(contour, True)
+            
+            if perimeter == 0 or area < 50000:  # Filter small areas
+                continue
+                
+            circularity = 4 * np.pi * area / (perimeter * perimeter)
+            
+            if circularity > 0.6:  # Lower threshold for more detections
+                (x, y), radius = cv2.minEnclosingCircle(contour)
+                
+                if 200 <= radius <= 500:
+                    # Enhanced confidence calculation
+                    confidence = circularity * (area / 200000) * (1.0 - abs(radius - 300) / 200)
+                    circles.append((x, y, radius, confidence))
+    
+    return circles
+
+def detect_circles_gradient_based(preprocessed_images):
+    """Gradient-based circle detection using edge information"""
+    circles = []
+    
+    # Use edge image
+    edges = preprocessed_images['edges']
+    
+    # Hough circle detection on edges
+    detected = cv2.HoughCircles(
+        edges, cv2.HOUGH_GRADIENT, dp=1, minDist=100,
+        param1=50, param2=15, minRadius=200, maxRadius=500
+    )
+    
+    if detected is not None:
+        for circle in detected[0]:
+            x, y, r = circle
+            # Calculate gradient-based confidence
+            confidence = calculate_gradient_confidence(edges, x, y, r)
+            circles.append((x, y, r, confidence))
+    
+    return circles
+
+def calculate_gradient_confidence(edges, x, y, r):
+    """Calculate confidence based on edge strength around circle"""
+    angles = np.linspace(0, 2*np.pi, 36)
+    edge_strengths = []
+    
+    for angle in angles:
+        px = int(x + r * np.cos(angle))
+        py = int(y + r * np.sin(angle))
+        
+        if 0 <= px < edges.shape[1] and 0 <= py < edges.shape[0]:
+            edge_strengths.append(edges[py, px])
+    
+    if edge_strengths:
+        return np.mean(edge_strengths) / 255.0
+    
+    return 0.0
+
+def refine_radius_advanced(gray, x, y, initial_radius):
+    """Advanced radius refinement using multiple techniques"""
+    height, width = gray.shape
+    
+    # Define search range
+    min_r = max(initial_radius - 80, 50)
+    max_r = min(initial_radius + 80, min(width, height) // 2)
+    
+    best_radius = initial_radius
+    best_score = 0
+    
+    # Test multiple refinement techniques
+    for test_radius in range(int(min_r), int(max_r), 3):
+        # Technique 1: Edge strength
+        edge_score = calculate_edge_strength(gray, x, y, test_radius)
+        
+        # Technique 2: Intensity gradient
+        gradient_score = calculate_intensity_gradient(gray, x, y, test_radius)
+        
+        # Technique 3: Circular symmetry
+        symmetry_score = calculate_circular_symmetry(gray, x, y, test_radius)
+        
+        # Combined score
+        combined_score = edge_score * 0.4 + gradient_score * 0.3 + symmetry_score * 0.3
+        
+        if combined_score > best_score:
+            best_score = combined_score
+            best_radius = test_radius
+    
+    return best_radius
+
+def calculate_edge_strength(gray, x, y, r):
+    """Calculate edge strength around circle"""
+    angles = np.linspace(0, 2*np.pi, 36)
+    gradients = []
+    
+    for angle in angles:
+        px = int(x + r * np.cos(angle))
+        py = int(y + r * np.sin(angle))
+        
+        if 0 <= px < gray.shape[1] and 0 <= py < gray.shape[0]:
+            if px > 0 and px < gray.shape[1]-1 and py > 0 and py < gray.shape[0]-1:
+                gx = int(gray[py, px+1]) - int(gray[py, px-1])
+                gy = int(gray[py+1, px]) - int(gray[py-1, px])
+                gradient_mag = np.sqrt(gx*gx + gy*gy)
+                gradients.append(gradient_mag)
+    
+    return np.mean(gradients) / 100.0 if gradients else 0.0
+
+def calculate_intensity_gradient(gray, x, y, r):
+    """Calculate intensity gradient from center to edge"""
+    center_intensity = gray[int(y), int(x)] if 0 <= int(y) < gray.shape[0] and 0 <= int(x) < gray.shape[1] else 0
+    
+    angles = np.linspace(0, 2*np.pi, 12)
+    edge_intensities = []
+    
+    for angle in angles:
+        px = int(x + r * np.cos(angle))
+        py = int(y + r * np.sin(angle))
+        
+        if 0 <= px < gray.shape[1] and 0 <= py < gray.shape[0]:
+            edge_intensities.append(gray[py, px])
+    
+    if edge_intensities:
+        edge_avg = np.mean(edge_intensities)
+        gradient = abs(center_intensity - edge_avg) / 255.0
+        return gradient
+    
+    return 0.0
+
+def calculate_circular_symmetry(gray, x, y, r):
+    """Calculate circular symmetry score"""
+    angles = np.linspace(0, 2*np.pi, 24)
+    intensities = []
+    
+    for angle in angles:
+        px = int(x + r * np.cos(angle))
+        py = int(y + r * np.sin(angle))
+        
+        if 0 <= px < gray.shape[1] and 0 <= py < gray.shape[0]:
+            intensities.append(gray[py, px])
+    
+    if len(intensities) > 4:
+        # Calculate variance - lower variance means more symmetric
+        variance = np.var(intensities)
+        symmetry = 1.0 / (1.0 + variance / 1000.0)
+        return symmetry
+    
+    return 0.0
 
 def detect_timestamp(image):
     """
