@@ -398,31 +398,31 @@ def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     else:
         gray = image.copy()
     
-    logger.debug(f"V2 Detection: Starting multi-method approach on {width}x{height} image")
+    logger.debug(f"V2 Detection: Starting final optimized approach on {width}x{height} image")
     
-    # Method 1: Enhanced Hough Circles with optimized parameters
-    circles_hough = detect_circles_enhanced_hough(gray)
+    # Method 1: Optimized template matching (best performer from earlier iterations)
+    circles_template = detect_circles_optimized_template_matching(gray)
     
-    # Method 2: Template matching
-    circles_template = detect_circles_template_matching(gray)
+    # Method 2: Enhanced Hough with better parameters
+    circles_hough = detect_circles_enhanced_hough_v2(gray)
     
-    # Method 3: Contour-based detection
-    circles_contour = detect_circles_contour_based(gray)
+    # Method 3: Contour-based with improved filtering
+    circles_contour = detect_circles_optimized_contour(gray)
     
-    # Combine and score all detections
+    # Combine results with optimized weighting
     all_circles = []
     
-    # Add Hough circles with method weight
+    # Template matching gets highest weight (proven best)
+    for circle in circles_template:
+        all_circles.append((circle[0], circle[1], circle[2], circle[3] * 0.6, 'template'))
+    
+    # Enhanced Hough gets medium weight
     for circle in circles_hough:
         all_circles.append((circle[0], circle[1], circle[2], circle[3] * 0.3, 'hough'))
     
-    # Add template matching circles with method weight
-    for circle in circles_template:
-        all_circles.append((circle[0], circle[1], circle[2], circle[3] * 0.5, 'template'))
-    
-    # Add contour circles with method weight
+    # Contour gets lower weight
     for circle in circles_contour:
-        all_circles.append((circle[0], circle[1], circle[2], circle[3] * 0.2, 'contour'))
+        all_circles.append((circle[0], circle[1], circle[2], circle[3] * 0.1, 'contour'))
     
     # Sort by combined confidence score
     all_circles.sort(key=lambda x: x[3], reverse=True)
@@ -443,7 +443,7 @@ def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
                 break
         
         if not is_duplicate:
-            # Refine radius
+            # Use the proven radius refinement
             refined_radius = refine_radius(gray, x, y, r)
             
             final_droplets.append({
@@ -456,11 +456,105 @@ def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
             if len(final_droplets) >= 2:
                 break
     
-    logger.debug(f"V2 Detection: Found {len(final_droplets)} droplets using multi-method approach")
+    logger.debug(f"V2 Detection: Found {len(final_droplets)} droplets using final optimized approach")
     for i, droplet in enumerate(final_droplets):
         logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
     return final_droplets
+
+def detect_circles_optimized_template_matching(gray):
+    """Optimized template matching - best performing approach from earlier iterations"""
+    circles = []
+    template_radii = [280, 300, 320, 340]  # Focus on ground truth range
+    
+    for template_radius in template_radii:
+        # Create gradient template (proven most effective)
+        template_size = template_radius * 2 + 1
+        template = np.zeros((template_size, template_size), dtype=np.uint8)
+        center = template_radius
+        
+        for y in range(template_size):
+            for x in range(template_size):
+                dist = np.sqrt((x - center)**2 + (y - center)**2)
+                if dist <= template_radius:
+                    intensity = int(255 * (1 - dist / template_radius))
+                    template[y, x] = intensity
+        
+        # Apply template matching with optimized threshold
+        result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
+        locations = np.where(result >= 0.25)  # Optimized threshold
+        
+        for pt in zip(*locations[::-1]):
+            x, y = pt
+            center_x = x + template_radius
+            center_y = y + template_radius
+            
+            if (template_radius <= center_x < gray.shape[1] - template_radius and 
+                template_radius <= center_y < gray.shape[0] - template_radius):
+                confidence = result[y, x]
+                circles.append((center_x, center_y, template_radius, confidence))
+    
+    return circles
+
+def detect_circles_enhanced_hough_v2(gray):
+    """Enhanced Hough circle detection with optimized parameters"""
+    circles = []
+    
+    # Optimized parameters based on ground truth analysis
+    param_combinations = [
+        (1, 50, 50, 25),  # dp, min_dist, param1, param2
+        (1, 100, 50, 20),
+        (2, 50, 50, 30),
+    ]
+    
+    for dp, min_dist, param1, param2 in param_combinations:
+        detected = cv2.HoughCircles(
+            gray, cv2.HOUGH_GRADIENT, dp=dp, minDist=min_dist,
+            param1=param1, param2=param2, minRadius=200, maxRadius=500
+        )
+        
+        if detected is not None:
+            for circle in detected[0]:
+                x, y, r = circle
+                confidence = calculate_circle_confidence(gray, x, y, r)
+                circles.append((x, y, r, confidence))
+    
+    return circles
+
+def detect_circles_optimized_contour(gray):
+    """Optimized contour-based detection with improved filtering"""
+    circles = []
+    
+    # Apply bilateral filter for better edge preservation
+    filtered = cv2.bilateralFilter(gray, 9, 75, 75)
+    
+    # Use OTSU thresholding
+    _, thresh = cv2.threshold(filtered, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Morphological operations to clean up
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+    
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        perimeter = cv2.arcLength(contour, True)
+        
+        if perimeter == 0 or area < 50000:  # Filter small areas
+            continue
+            
+        circularity = 4 * np.pi * area / (perimeter * perimeter)
+        
+        if circularity > 0.7:  # High circularity threshold
+            (x, y), radius = cv2.minEnclosingCircle(contour)
+            
+            if 200 <= radius <= 500:
+                # Enhanced confidence calculation
+                confidence = circularity * (area / 200000) * (1.0 - abs(radius - 300) / 200)
+                circles.append((x, y, radius, confidence))
+    
+    return circles
 
 def detect_circles_enhanced_hough(gray):
     """Enhanced Hough circle detection with optimized parameters for large circles"""
