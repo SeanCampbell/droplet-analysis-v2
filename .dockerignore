@@ -1,0 +1,70 @@
+# Git
+.git
+.gitignore
+
+# Node modules
+node_modules
+npm-debug.log*
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.venv
+venv/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Development files
+test-*.py
+test-*.html
+test-*.js
+*.md
+README.md
+VIDEO_CONVERSION_GUIDE.md
+
+# Python server (handled in separate stage)
+# Note: python-server/ is needed for the Python stage, so we can't exclude it globally
+
+# Old single Dockerfile (now using separate Dockerfiles)
+Dockerfile
+
+# Build artifacts
+dist
+build
+*.egg-info
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp
+temp

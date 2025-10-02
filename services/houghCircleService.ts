@@ -1,7 +1,9 @@
 import type { Droplet, FrameAnalysis } from '../types';
 
 // Configuration for the Python API server
-const PYTHON_API_BASE_URL = 'http://localhost:5001';
+// Use relative URLs for production (Docker), absolute for development
+const PYTHON_API_BASE_URL = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5001';
+const API_PREFIX = process.env.NODE_ENV === 'production' ? '/api' : '';
 
 // Convert ImageData to base64 string
 const imageDataToBase64 = (imageData: ImageData): string => {
@@ -20,11 +22,15 @@ const imageDataToBase64 = (imageData: ImageData): string => {
 
 // Check if Python API server is available
 const checkPythonServerHealth = async (): Promise<boolean> => {
+    const healthUrl = `${PYTHON_API_BASE_URL}/health`;
+    console.log(`Checking Python API health at: ${healthUrl}`);
+    
     try {
-        const response = await fetch(`${PYTHON_API_BASE_URL}/health`, {
+        const response = await fetch(healthUrl, {
             method: 'GET',
             timeout: 5000
         });
+        console.log(`Health check response: ${response.status} ${response.statusText}`);
         return response.ok;
     } catch (error) {
         console.warn('Python API server not available, falling back to Web Worker:', error);
@@ -46,22 +52,47 @@ const analyzeFrameWithPythonAPI = async (imageData: ImageData): Promise<Omit<Fra
         param2: 85
     };
     
-    const response = await fetch(`${PYTHON_API_BASE_URL}/analyze-frame`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-    });
+    const apiUrl = `${PYTHON_API_BASE_URL}${API_PREFIX}/analyze-frame`;
+    console.log(`🔍 API Configuration:`);
+    console.log(`  - NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`  - PYTHON_API_BASE_URL: "${PYTHON_API_BASE_URL}"`);
+    console.log(`  - API_PREFIX: "${API_PREFIX}"`);
+    console.log(`  - Final API URL: "${apiUrl}"`);
+    console.log(`  - Request body size: ${JSON.stringify(requestBody).length} characters`);
     
-    if (!response.ok) {
-        throw new Error(`Python API error: ${response.status} ${response.statusText}`);
-    }
-    
-    const result = await response.json();
-    
-    if (!result.success) {
-        throw new Error(`Python API detection failed: ${result.error}`);
+    let result;
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        });
+        
+        console.log(`API response status: ${response.status} ${response.statusText}`);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`API error response: ${errorText}`);
+            throw new Error(`Python API error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        
+        result = await response.json();
+        console.log(`API response received:`, result);
+        
+        // Check if the response has an error field (indicates failure)
+        if (result.error) {
+            throw new Error(`Python API detection failed: ${result.error}`);
+        }
+        
+        // Check if we have the expected data structure
+        if (!result.droplets && !result.dropletsFound) {
+            throw new Error(`Python API detection failed: Invalid response format`);
+        }
+    } catch (error) {
+        console.error('API request failed:', error);
+        throw error;
     }
     
     // Return the result in the same format as Gemini service

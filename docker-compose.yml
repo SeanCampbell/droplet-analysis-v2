@@ -1,0 +1,58 @@
+services:
+  # Backend Python API service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: droplet-analysis-backend
+    environment:
+      - PORT=5001
+      - HOST=0.0.0.0
+      - DEBUG=true
+      - FLASK_DEBUG=1
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 14G
+          cpus: '4.0'
+        reservations:
+          memory: 10G
+          cpus: '1.0'
+        # limits:
+        #   memory: 2G
+        #   cpus: '1.0'
+        # reservations:
+        #   memory: 1G
+        #   cpus: '0.5'
+    networks:
+      - droplet-analysis-network
+
+  # Frontend React application service
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: droplet-analysis-frontend
+    ports:
+      - "80:80"  # Map host port 80 to container port 80
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - droplet-analysis-network
+
+networks:
+  droplet-analysis-network:
+    driver: bridge

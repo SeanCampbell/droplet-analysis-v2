@@ -1,18 +1,51 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+#!/usr/bin/env python3
+"""
+Unified Flask application for droplet analysis
+Supports both development and production environments
+"""
+
+import os
+import base64
 import cv2
 import numpy as np
-import base64
-import io
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from PIL import Image
+import io
+import logging
 import json
 import re
 import pytesseract
 
-app = Flask(__name__)
+# Configure logging based on environment
+debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
+log_level = logging.DEBUG if debug_mode else logging.INFO
+logging.basicConfig(
+    level=log_level,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-# Enable CORS for all routes
-CORS(app, origins=['http://localhost:8888', 'http://127.0.0.1:8888'])
+# Create Flask app
+app = Flask(__name__, static_folder='static', static_url_path='')
+
+# Configure Flask debug mode
+app.config['DEBUG'] = debug_mode
+app.config['FLASK_DEBUG'] = os.getenv('FLASK_DEBUG', '0') == '1'
+app.config['FLASK_ENV'] = os.getenv('FLASK_ENV', 'production')
+
+# Configure CORS based on environment
+if os.getenv('FLASK_ENV') == 'development':
+    # Development: Allow specific origins
+    CORS(app, origins=['http://localhost:8888', 'http://127.0.0.1:8888'])
+else:
+    # Production: Allow all origins (nginx handles the routing)
+    CORS(app, origins='*')
+
+# Production configuration
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+logger.info(f"Starting Flask app in {'DEBUG' if debug_mode else 'PRODUCTION'} mode")
 
 def base64_to_image(base64_string):
     """Convert base64 string to OpenCV image"""
@@ -424,6 +457,92 @@ def detect_timestamp(image):
         print(f"Timestamp detection error: {e}")
         return "Not Found", False
 
+
+# TODO: campbellsean - At some point, compare this to the implementation above
+# def detect_timestamp(image):
+#     """
+#     Detect timestamp in the image using OCR
+#     """
+#     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     height, width = gray.shape
+    
+#     # Focus on bottom-left area where timestamp usually appears
+#     roi = gray[int(height*0.8):height, 0:int(width*0.4)]
+    
+#     if roi.size == 0:
+#         return {"value": "Not Found", "found": False}
+    
+#     # Multiple preprocessing techniques for better OCR
+#     preprocessing_techniques = [
+#         ("high_contrast", lambda img: cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]),
+#         ("otsu", lambda img: cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]),
+#         ("inverted", lambda img: cv2.bitwise_not(cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1])),
+#         ("morphological", lambda img: cv2.morphologyEx(cv2.threshold(img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1], cv2.MORPH_CLOSE, np.ones((2,2), np.uint8))),
+#         ("gaussian_thresh", lambda img: cv2.threshold(cv2.GaussianBlur(img, (3,3), 0), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]),
+#     ]
+    
+#     best_text = ""
+#     best_confidence = 0
+    
+#     for technique_name, preprocess_func in preprocessing_techniques:
+#         try:
+#             processed_roi = preprocess_func(roi)
+            
+#             # Try different OCR configurations
+#             ocr_configs = [
+#                 '--psm 8 -c tessedit_char_whitelist=0123456789:.Live Time',
+#                 '--psm 7 -c tessedit_char_whitelist=0123456789:.Live Time',
+#                 '--psm 6 -c tessedit_char_whitelist=0123456789:.Live Time',
+#                 '--psm 13 -c tessedit_char_whitelist=0123456789:.Live Time',
+#                 '--psm 8',
+#                 '--psm 7',
+#                 '--psm 6',
+#             ]
+            
+#             for config in ocr_configs:
+#                 try:
+#                     text = pytesseract.image_to_string(processed_roi, config=config).strip()
+#                     if text and len(text) > 2:
+#                         # Clean up the text
+#                         text = re.sub(r'[^\w\s:.]', '', text)
+#                         if text:
+#                             # Use the first valid result
+#                             best_text = text
+#                             break
+#                 except Exception as e:
+#                     logger.debug(f"OCR config {config} failed: {e}")
+#                     continue
+            
+#             if best_text:
+#                 break
+                
+#         except Exception as e:
+#             logger.debug(f"Preprocessing technique {technique_name} failed: {e}")
+#             continue
+    
+#     # Extract timestamp using regex patterns
+#     timestamp_patterns = [
+#         r'Live\s*Time:\s*(\d+\.\d{3})',  # "Live Time: 40.456"
+#         r'(\d+\.\d{3})',  # "40.456"
+#         r'Time:\s*(\d+\.\d{3})',  # "Time: 40.456"
+#         r'(\d+\.\d{2})',  # "40.45"
+#         r'(\d+\.\d{1})',  # "40.4"
+#         r'(\d+)',  # "40"
+#     ]
+    
+#     found_timestamp = "Not Found"
+#     for pattern in timestamp_patterns:
+#         match = re.search(pattern, best_text)
+#         if match:
+#             found_timestamp = match.group(1)
+#             logger.debug(f"Found timestamp: '{found_timestamp}' using pattern: {pattern}")
+#             break
+    
+#     return {
+#         "value": found_timestamp,
+#         "found": found_timestamp != "Not Found"
+#     }
+
 def detect_scale_bar(image):
     """
     Detect scale bar in the image using improved line detection and OCR
@@ -577,6 +696,186 @@ def detect_scale_bar(image):
         print(f"Scale bar detection error: {e}")
         return {}, False
 
+# TODO: campbellsean - At some point, compare this to the implementation above
+# and see if it's better or worse
+# def detect_scale_bar(image):
+#     """
+#     Detect scale bar in the image
+#     """
+#     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+#     height, width = gray.shape
+    
+#     # Focus on bottom-right area where scale bar usually appears
+#     roi = gray[int(height*0.8):height, int(width*0.7):width]
+    
+#     if roi.size == 0:
+#         return {
+#             "x1": 0, "y1": 0, "x2": 0, "y2": 0,
+#             "label": "Not Found",
+#             "length": 0,
+#             "found": False
+#         }
+    
+#     # Detect horizontal lines using HoughLinesP
+#     edges = cv2.Canny(roi, 50, 150, apertureSize=3)
+    
+#     # Try different parameters for line detection
+#     line_params = [
+#         {"threshold": 50, "minLineLength": 30, "maxLineGap": 10},
+#         {"threshold": 30, "minLineLength": 20, "maxLineGap": 15},
+#         {"threshold": 20, "minLineLength": 15, "maxLineGap": 20},
+#         {"threshold": 10, "minLineLength": 10, "maxLineGap": 25},
+#     ]
+    
+#     best_line = None
+#     best_length = 0
+    
+#     for params in line_params:
+#         lines = cv2.HoughLinesP(
+#             edges,
+#             rho=1,
+#             theta=np.pi/180,
+#             threshold=params["threshold"],
+#             minLineLength=params["minLineLength"],
+#             maxLineGap=params["maxLineGap"]
+#         )
+        
+#         if lines is not None:
+#             for line in lines:
+#                 x1, y1, x2, y2 = line[0]
+                
+#                 # Check if line is roughly horizontal
+#                 if abs(y2 - y1) < 5:  # Horizontal line
+#                     length = abs(x2 - x1)
+                    
+#                     # Filter for lines in the bottom-right area
+#                     roi_x1 = int(width * 0.7)
+#                     roi_y1 = int(height * 0.8)
+                    
+#                     # Convert back to original image coordinates
+#                     orig_x1 = x1 + roi_x1
+#                     orig_y1 = y1 + roi_y1
+#                     orig_x2 = x2 + roi_x1
+#                     orig_y2 = y2 + roi_y1
+                    
+#                     # Ensure line is in the bottom-right area and not too close to edges
+#                     if (orig_x1 > width * 0.75 and orig_x2 > width * 0.75 and
+#                         orig_y1 > height * 0.85 and orig_y2 > height * 0.85 and
+#                         orig_x1 < width * 0.95 and orig_x2 < width * 0.95):
+                        
+#                         if length > best_length:
+#                             best_line = [orig_x1, orig_y1, orig_x2, orig_y2]
+#                             best_length = length
+            
+#             # If we found a good line, break
+#             if best_line is not None:
+#                 break
+    
+#     if best_line is None:
+#         # Fallback: look for any horizontal line in the bottom-right area
+#         for params in line_params:
+#             lines = cv2.HoughLinesP(
+#                 edges,
+#                 rho=1,
+#                 theta=np.pi/180,
+#                 threshold=params["threshold"],
+#                 minLineLength=params["minLineLength"],
+#                 maxLineGap=params["maxLineGap"]
+#             )
+            
+#             if lines is not None:
+#                 for line in lines:
+#                     x1, y1, x2, y2 = line[0]
+#                     if abs(y2 - y1) < 10:  # More lenient horizontal check
+#                         length = abs(x2 - x1)
+#                         if length > best_length:
+#                             roi_x1 = int(width * 0.7)
+#                             roi_y1 = int(height * 0.8)
+#                             best_line = [x1 + roi_x1, y1 + roi_y1, x2 + roi_x1, y2 + roi_y1]
+#                             best_length = length
+#                 if best_line is not None:
+#                     break
+    
+#     if best_line is None:
+#         return {
+#             "x1": 0, "y1": 0, "x2": 0, "y2": 0,
+#             "label": "Not Found",
+#             "length": 0,
+#             "found": False
+#         }
+    
+#     x1, y1, x2, y2 = best_line
+    
+#     # Try to read the scale bar label using OCR
+#     # Look for text near the scale bar
+#     text_roi_y1 = max(0, y1 - 30)
+#     text_roi_y2 = min(height, y1 + 10)
+#     text_roi_x1 = max(0, x1 - 50)
+#     text_roi_x2 = min(width, x2 + 50)
+    
+#     text_roi = gray[text_roi_y1:text_roi_y2, text_roi_x1:text_roi_x2]
+    
+#     scale_label = "Not Found"
+#     if text_roi.size > 0:
+#         try:
+#             # Preprocess for OCR
+#             processed_roi = cv2.threshold(text_roi, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            
+#             # Try different OCR configurations for scale labels
+#             ocr_configs = [
+#                 '--psm 8 -c tessedit_char_whitelist=0123456789µmum',
+#                 '--psm 7 -c tessedit_char_whitelist=0123456789µmum',
+#                 '--psm 6 -c tessedit_char_whitelist=0123456789µmum',
+#                 '--psm 8',
+#                 '--psm 7',
+#             ]
+            
+#             for config in ocr_configs:
+#                 try:
+#                     text = pytesseract.image_to_string(processed_roi, config=config).strip()
+#                     if text and len(text) > 1:
+#                         # Clean up the text
+#                         text = re.sub(r'[^\w\sµm]', '', text)
+#                         if text:
+#                             scale_label = text
+#                             break
+#                 except Exception as e:
+#                     logger.debug(f"Scale OCR config {config} failed: {e}")
+#                     continue
+#         except Exception as e:
+#             logger.debug(f"Scale OCR failed: {e}")
+    
+#     # If OCR failed, estimate based on relative length
+#     if scale_label == "Not Found" and best_length > 0:
+#         # Estimate scale based on image size and line length
+#         # This is a rough estimation - in practice, you'd need calibration
+#         estimated_scale = int(best_length * 0.1)  # Rough estimation
+#         scale_label = f"{estimated_scale} µm"
+    
+#     return {
+#         "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+#         "label": scale_label,
+#         "length": best_length,
+#         "found": scale_label != "Not Found"
+#     }
+
+def convert_numpy_types(obj):
+    """
+    Recursively convert NumPy types to native Python types for JSON serialization
+    """
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    else:
+        return obj
+
 def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
     Comprehensive frame analysis including droplets, scale bar, and timestamp
@@ -630,155 +929,74 @@ def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_
     
     return result
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({"status": "healthy", "service": "hough-circle-detection"})
-
-@app.route('/debug-circles', methods=['POST'])
-def debug_circles():
-    """
-    Debug endpoint for circle detection with detailed information
+# Production routes (only in production mode)
+if os.getenv('FLASK_ENV') != 'development':
+    @app.route('/')
+    def serve_frontend():
+        """Serve the frontend application"""
+        return send_from_directory('static', 'index.html')
     
-    Expected JSON payload:
-    {
-        "image": "base64_encoded_image",
-        "min_radius": 20,
-        "max_radius": 150
-    }
-    """
-    try:
-        data = request.get_json()
-        
-        if not data or 'image' not in data:
-            return jsonify({"error": "Missing 'image' field in request"}), 400
-        
-        # Get parameters with defaults
-        min_radius = data.get('min_radius', 20)
-        max_radius = data.get('max_radius', 500)
-        
-        # Convert base64 image to OpenCV format
-        image = base64_to_image(data['image'])
-        
-        # Get image info
-        height, width = image.shape[:2]
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (9, 9), 2)
-        
-        # Try different parameter combinations
-        param_combinations = [
-            {"dp": 1, "min_dist": 50, "param1": 50, "param2": 85, "name": "default"},
-            {"dp": 1, "min_dist": 25, "param1": 25, "param2": 42, "name": "relaxed"},
-            {"dp": 1, "min_dist": 17, "param1": 17, "param2": 28, "name": "very_relaxed"},
-            {"dp": 2, "min_dist": 50, "param1": 50, "param2": 85, "name": "dp2"},
-            {"dp": 1, "min_dist": 10, "param1": 10, "param2": 20, "name": "minimal"},
-        ]
-        
-        results = []
-        best_result = None
-        best_count = 0
-        
-        for params in param_combinations:
-            circles = cv2.HoughCircles(
-                blurred,
-                cv2.HOUGH_GRADIENT,
-                dp=params["dp"],
-                minDist=params["min_dist"],
-                param1=params["param1"],
-                param2=params["param2"],
-                minRadius=min_radius,
-                maxRadius=max_radius
-            )
-            
-            if circles is not None:
-                circles = np.round(circles[0, :]).astype("int")
-                detected_circles = []
-                for i, (x, y, r) in enumerate(circles):
-                    detected_circles.append({
-                        "id": i,
-                        "cx": int(x),
-                        "cy": int(y),
-                        "r": int(r)
-                    })
-                
-                if len(circles) > best_count:
-                    best_count = len(circles)
-                    best_result = detected_circles
-                
-                results.append({
-                    "params": params["name"],
-                    "circles": detected_circles,
-                    "count": len(circles)
-                })
-            else:
-                results.append({
-                    "params": params["name"],
-                    "circles": [],
-                    "count": 0
-                })
-        
-        return jsonify({
-            "success": True,
-            "image_info": {
-                "width": width,
-                "height": height,
-                "grayscale_range": [int(gray.min()), int(gray.max())],
-                "blurred_range": [int(blurred.min()), int(blurred.max())]
-            },
-            "parameter_tests": results,
-            "best_result": best_result,
-            "best_count": best_count
-        })
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+    @app.route('/<path:path>')
+    def serve_static(path):
+        """Serve static files"""
+        return send_from_directory('static', path)
 
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    """Health check endpoint for load balancer"""
+    logger.debug("Health check requested")
+    return jsonify({
+        "status": "healthy",
+        "service": "droplet-analysis-api",
+        "version": "1.0.0",
+        "debug_mode": debug_mode
+    })
+
+# Main analysis endpoint
 @app.route('/analyze-frame', methods=['POST'])
+@app.route('/api/analyze-frame', methods=['POST'])  # Support both routes
 def analyze_frame():
     """
-    Comprehensive frame analysis matching Gemini service format
+    Comprehensive frame analysis endpoint
     
     Expected JSON payload:
     {
         "image": "base64_encoded_image",
         "min_radius": 20,
-        "max_radius": 150,
-        "dp": 1,
-        "min_dist": 50,
-        "param1": 50,
-        "param2": 85
+        "max_radius": 500
     }
     """
+    logger.debug("Received analyze-frame request")
     try:
         data = request.get_json()
+        logger.debug(f"Request data keys: {list(data.keys()) if data else 'None'}")
         
         if not data or 'image' not in data:
+            logger.warning("Missing 'image' field in request")
             return jsonify({"error": "Missing 'image' field in request"}), 400
         
         # Get parameters with defaults
         min_radius = data.get('min_radius', 20)
         max_radius = data.get('max_radius', 500)
-        dp = data.get('dp', 1)
-        min_dist = data.get('min_dist', 50)
-        param1 = data.get('param1', 50)
-        param2 = data.get('param2', 85)
+        logger.debug(f"Analysis parameters: min_radius={min_radius}, max_radius={max_radius}")
         
         # Convert base64 image to OpenCV format
+        logger.debug("Converting base64 image to OpenCV format")
         image = base64_to_image(data['image'])
+        logger.debug(f"Image shape: {image.shape}")
         
         # Perform comprehensive analysis
+        logger.debug("Starting comprehensive frame analysis")
         result = analyze_frame_comprehensive(
             image,
             min_radius=min_radius,
-            max_radius=max_radius,
-            dp=dp,
-            min_dist=min_dist,
-            param1=param1,
-            param2=param2
+            max_radius=max_radius
         )
+        
+        droplet_count = len(result['droplets'])
+        logger.info(f"Analysis completed: {droplet_count} droplets found")
+        logger.debug(f"Result keys: {list(result.keys())}")
         
         return jsonify({
             "success": True,
@@ -786,26 +1004,15 @@ def analyze_frame():
         })
         
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        logger.error(f"Analysis error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
+# Legacy circle detection endpoint
 @app.route('/detect-circles', methods=['POST'])
+@app.route('/api/detect-circles', methods=['POST'])  # Support both routes
 def detect_circles():
     """
-    Detect circles in an image using Hough Circle Transform
-    
-    Expected JSON payload:
-    {
-        "image": "base64_encoded_image",
-        "min_radius": 20,
-        "max_radius": 150,
-        "dp": 1,
-        "min_dist": 50,
-        "param1": 50,
-        "param2": 85
-    }
+    Legacy circle detection endpoint for backward compatibility
     """
     try:
         data = request.get_json()
@@ -835,124 +1042,114 @@ def detect_circles():
             param2=param2
         )
         
-        return jsonify({
-            "success": True,
-            "circles": circles,
-            "count": len(circles)
-        })
+        # Convert circles to the expected format
+        formatted_circles = []
+        for i, circle in enumerate(circles):
+            x, y, r = circle
+            formatted_circles.append({
+                "id": i,
+                "cx": int(x),
+                "cy": int(y),
+                "r": int(r)
+            })
         
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-@app.route('/detect-circles-advanced', methods=['POST'])
-def detect_circles_advanced():
-    """
-    Advanced circle detection with multiple preprocessing options
-    
-    Expected JSON payload:
-    {
-        "image": "base64_encoded_image",
-        "preprocessing": {
-            "blur_kernel": 9,
-            "blur_sigma": 2,
-            "threshold_type": "adaptive",
-            "threshold_value": 127
-        },
-        "hough_params": {
-            "min_radius": 20,
-            "max_radius": 150,
-            "dp": 1,
-            "min_dist": 50,
-            "param1": 50,
-            "param2": 85
+        result = {
+            "circles": formatted_circles,
+            "count": len(circles),
+            "success": True
         }
-    }
-    """
-    try:
-        data = request.get_json()
         
-        if not data or 'image' not in data:
-            return jsonify({"error": "Missing 'image' field in request"}), 400
+        # Convert NumPy types to native Python types
+        result = convert_numpy_types(result)
         
-        # Get preprocessing parameters
-        preprocessing = data.get('preprocessing', {})
-        blur_kernel = preprocessing.get('blur_kernel', 9)
-        blur_sigma = preprocessing.get('blur_sigma', 2)
-        threshold_type = preprocessing.get('threshold_type', 'adaptive')
-        threshold_value = preprocessing.get('threshold_value', 127)
-        
-        # Get Hough parameters
-        hough_params = data.get('hough_params', {})
-        min_radius = hough_params.get('min_radius', 20)
-        max_radius = hough_params.get('max_radius', 500)
-        dp = hough_params.get('dp', 1)
-        min_dist = hough_params.get('min_dist', 50)
-        param1 = hough_params.get('param1', 50)
-        param2 = hough_params.get('param2', 85)
-        
-        # Convert base64 image to OpenCV format
-        image = base64_to_image(data['image'])
-        
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Apply preprocessing
-        if blur_kernel > 0:
-            gray = cv2.GaussianBlur(gray, (blur_kernel, blur_kernel), blur_sigma)
-        
-        # Apply thresholding if specified
-        if threshold_type == 'binary':
-            _, gray = cv2.threshold(gray, threshold_value, 255, cv2.THRESH_BINARY)
-        elif threshold_type == 'adaptive':
-            gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-        
-        # Detect circles
-        circles = cv2.HoughCircles(
-            gray,
-            cv2.HOUGH_GRADIENT,
-            dp=dp,
-            minDist=min_dist,
-            param1=param1,
-            param2=param2,
-            minRadius=min_radius,
-            maxRadius=max_radius
-        )
-        
-        detected_circles = []
-        
-        if circles is not None:
-            circles = np.round(circles[0, :]).astype("int")
-            
-            # Sort circles by radius (largest first) and take top 2
-            circles = sorted(circles, key=lambda x: x[2], reverse=True)[:2]
-            
-            for i, (x, y, r) in enumerate(circles):
-                detected_circles.append({
-                    "id": i,
-                    "cx": int(x),
-                    "cy": int(y),
-                    "r": int(r)
-                })
-        
-        return jsonify({
-            "success": True,
-            "circles": detected_circles,
-            "count": len(detected_circles),
-            "parameters_used": {
-                "preprocessing": preprocessing,
-                "hough_params": hough_params
-            }
-        })
+        logger.info(f"Circle detection completed: {len(circles)} circles found")
+        return jsonify(result)
         
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
+        logger.error(f"Circle detection error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# Debug endpoint (development only)
+if os.getenv('FLASK_ENV') == 'development':
+    @app.route('/debug-circles', methods=['POST'])
+    def debug_circles():
+        """
+        Debug endpoint for testing circle detection parameters
+        """
+        try:
+            data = request.get_json()
+            
+            if not data or 'image' not in data:
+                return jsonify({"error": "Missing 'image' field in request"}), 400
+            
+            # Get parameters with defaults
+            min_radius = data.get('min_radius', 20)
+            max_radius = data.get('max_radius', 500)
+            dp = data.get('dp', 1)
+            min_dist = data.get('min_dist', 50)
+            param1 = data.get('param1', 50)
+            param2 = data.get('param2', 85)
+            
+            # Convert base64 image to OpenCV format
+            image = base64_to_image(data['image'])
+            
+            # Detect circles with detailed logging
+            circles = detect_circles_hough(
+                image,
+                min_radius=min_radius,
+                max_radius=max_radius,
+                dp=dp,
+                min_dist=min_dist,
+                param1=param1,
+                param2=param2
+            )
+            
+            result = {
+                "success": True,
+                "image_info": {
+                    "width": int(image.shape[1]),
+                    "height": int(image.shape[0]),
+                    "channels": int(image.shape[2]) if len(image.shape) > 2 else 1
+                },
+                "parameters": {
+                    "min_radius": min_radius,
+                    "max_radius": max_radius,
+                    "dp": dp,
+                    "min_dist": min_dist,
+                    "param1": param1,
+                    "param2": param2
+                },
+                "circles": [{"id": i, "cx": int(c[0]), "cy": int(c[1]), "r": int(c[2])} for i, c in enumerate(circles)],
+                "count": len(circles)
+            }
+            
+            # Convert NumPy types to native Python types
+            result = convert_numpy_types(result)
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
-
+    # Server configuration
+    port = int(os.environ.get('PORT', 5001))
+    host = os.environ.get('HOST', '0.0.0.0')
+    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+    
+    logger.info(f"Starting droplet analysis API on {host}:{port}")
+    logger.info(f"Debug mode: {debug}")
+    logger.info(f"Flask debug: {app.config['DEBUG']}")
+    logger.info(f"Flask environment: {app.config['FLASK_ENV']}")
+    
+    # Use production WSGI server in production mode
+    if os.getenv('FLASK_ENV') != 'development' and not debug:
+        logger.info("Using Waitress WSGI server for production")
+        from waitress import serve
+        serve(app, host=host, port=port, threads=4)
+    else:
+        logger.info("Using Flask development server for debugging")
+        app.run(host=host, port=port, debug=debug)

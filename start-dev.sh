@@ -44,10 +44,17 @@ fi
 if [ -f "python-server/requirements.txt" ]; then
     echo "📦 Installing Python dependencies..."
     cd python-server
-    pip3 install -r requirements.txt
+    python -m pip install --upgrade pip
+    python -m pip install --only-binary=all -r requirements.txt
     if [ $? -ne 0 ]; then
-        echo "❌ Failed to install Python dependencies"
-        exit 1
+        echo "⚠️  Binary installation failed, trying with source packages..."
+        python -m pip install -r requirements.txt
+        if [ $? -ne 0 ]; then
+            echo "❌ Failed to install Python dependencies"
+            echo "💡 Try using Python 3.11 instead of 3.12, or install setuptools:"
+            echo "   python -m pip install setuptools"
+            exit 1
+        fi
     fi
     cd ..
     echo "✅ Python dependencies installed"
@@ -85,7 +92,7 @@ trap cleanup SIGINT SIGTERM
 # Start Python API server
 echo "🐍 Starting Python API server on port 5001..."
 cd python-server
-python3 app.py &
+FLASK_ENV=development DEBUG=true python3 app.py &
 PYTHON_PID=$!
 cd ..
 
