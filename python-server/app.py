@@ -398,21 +398,65 @@ def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     else:
         gray = image.copy()
     
-    logger.debug(f"V2 Detection: Starting ML-inspired approach on {width}x{height} image")
+    logger.debug(f"V2 Detection: Starting multi-method approach on {width}x{height} image")
     
-    # Step 1: Feature extraction - create feature maps
-    feature_maps = extract_circle_features(gray)
+    # Method 1: Enhanced Hough Circles with optimized parameters
+    circles_hough = detect_circles_enhanced_hough(gray)
     
-    # Step 2: Candidate generation - find potential circle centers
-    candidates = generate_circle_candidates(feature_maps, gray)
+    # Method 2: Template matching
+    circles_template = detect_circles_template_matching(gray)
     
-    # Step 3: Classification - score each candidate
-    scored_candidates = classify_circle_candidates(candidates, gray)
+    # Method 3: Contour-based detection
+    circles_contour = detect_circles_contour_based(gray)
     
-    # Step 4: Non-maximum suppression - select best non-overlapping circles
-    final_droplets = non_maximum_suppression(scored_candidates)
+    # Combine and score all detections
+    all_circles = []
     
-    logger.debug(f"V2 Detection: Found {len(final_droplets)} droplets using ML-inspired approach")
+    # Add Hough circles with method weight
+    for circle in circles_hough:
+        all_circles.append((circle[0], circle[1], circle[2], circle[3] * 0.3, 'hough'))
+    
+    # Add template matching circles with method weight
+    for circle in circles_template:
+        all_circles.append((circle[0], circle[1], circle[2], circle[3] * 0.5, 'template'))
+    
+    # Add contour circles with method weight
+    for circle in circles_contour:
+        all_circles.append((circle[0], circle[1], circle[2], circle[3] * 0.2, 'contour'))
+    
+    # Sort by combined confidence score
+    all_circles.sort(key=lambda x: x[3], reverse=True)
+    
+    # Select best non-overlapping circles
+    final_droplets = []
+    min_distance = 200
+    
+    for circle in all_circles:
+        x, y, r, confidence, method = circle
+        is_duplicate = False
+        
+        for existing in final_droplets:
+            existing_x, existing_y = existing['cx'], existing['cy']
+            distance = np.sqrt((x - existing_x)**2 + (y - existing_y)**2)
+            if distance < min_distance:
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            # Refine radius
+            refined_radius = refine_radius(gray, x, y, r)
+            
+            final_droplets.append({
+                'cx': int(x),
+                'cy': int(y),
+                'r': int(refined_radius),
+                'id': len(final_droplets)
+            })
+            
+            if len(final_droplets) >= 2:
+                break
+    
+    logger.debug(f"V2 Detection: Found {len(final_droplets)} droplets using multi-method approach")
     for i, droplet in enumerate(final_droplets):
         logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
