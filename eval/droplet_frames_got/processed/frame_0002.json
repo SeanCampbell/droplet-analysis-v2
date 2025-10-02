@@ -1,0 +1,29 @@
+{
+  "frame": 2,
+  "timestamp": "111.218",
+  "timestampFound": true,
+  "scaleFound": true,
+  "dropletsFound": true,
+  "droplets": [
+    {
+      "cx": 634,
+      "cy": 594,
+      "id": 0,
+      "r": 149
+    },
+    {
+      "cx": 1172,
+      "cy": 504,
+      "id": 1,
+      "r": 149
+    }
+  ],
+  "scale": {
+    "label": "100 µm",
+    "length": 307,
+    "x1": 1490,
+    "x2": 1797,
+    "y1": 1044,
+    "y2": 1044
+  }
+}
