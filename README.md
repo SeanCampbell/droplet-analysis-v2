@@ -12,6 +12,8 @@ A sophisticated application for analyzing droplet images using both AI-powered d
   - AI-powered droplet detection using Google Gemini
   - Computer vision-based Hough circle detection via Python API
 - **Video Processing**: Extract and analyze frames from video files with automatic format conversion
+  - **Server-side conversion**: Fast FFmpeg-based conversion for large files (up to 5GB)
+  - **Client-side fallback**: Browser-based conversion using FFmpeg.js
 - **Interactive Canvas**: Manual adjustment of detected droplets and scale bars
 - **Export Functionality**: Export analysis results to CSV format
 - **Real-time Analysis**: Process multiple frames with progress tracking
@@ -94,6 +96,7 @@ The Python server runs on `http://localhost:5001` by default and is configured w
 - `GET /health` - Health check endpoint
 - `POST /detect-circles` - Basic Hough circle detection
 - `POST /detect-circles-advanced` - Advanced detection with preprocessing options
+- `POST /api/convert-video` - Server-side video conversion using FFmpeg (supports files up to 5GB)
 
 ### Frontend Application (Port 8888)
 
@@ -104,7 +107,7 @@ The Python server runs on `http://localhost:5001` by default and is configured w
 ## Usage
 
 1. **Upload Video**: Select a video file containing droplet images (supports MP4, WebM, OGG directly; AVI, MOV, WMV, FLV, MKV, 3GP, M4V auto-converted)
-2. **Automatic Conversion**: Unsupported formats are automatically converted to MP4 using client-side FFmpeg
+2. **Automatic Conversion**: Unsupported formats are automatically converted to MP4 using server-side FFmpeg (faster) with client-side fallback
 3. **Choose Detection Method**: Select between "Gemini" (AI) or "Hough" (Computer Vision)
 4. **Analyze**: Click "Analyze Video" to process all frames
 5. **Review Results**: Use the interactive canvas to adjust detections

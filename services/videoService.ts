@@ -1,4 +1,5 @@
 import { videoConversionService, ConversionProgress } from './videoConversionService';
+import { serverVideoConversionService, ServerConversionProgress } from './serverVideoConversionService';
 
 export interface VideoProcessingProgress {
   stage: 'checking' | 'converting' | 'extracting' | 'complete' | 'error';
@@ -43,39 +44,99 @@ export const extractFramesFromVideo = async (
       } else {
         // File is too large or needs conversion
         const fileSizeMB = videoFile.size / (1024 * 1024);
-        if (fileSizeMB > 1000) {
+        if (fileSizeMB > 5000) {
           onProgress({
             stage: 'error',
             progress: 0,
-            message: `File too large (${fileSizeMB.toFixed(1)}MB). Please use a video under 1000MB or convert it manually to MP4.`,
+            message: `File too large (${fileSizeMB.toFixed(1)}MB). Please use a video under 5000MB (5GB) or convert it manually to MP4.`,
           });
-          throw new Error(`File too large: ${fileSizeMB.toFixed(1)}MB. Please use a video under 1000MB or convert it manually to MP4.`);
+          throw new Error(`File too large: ${fileSizeMB.toFixed(1)}MB. Please use a video under 5000MB (5GB) or convert it manually to MP4.`);
         }
 
-        onProgress({
-          stage: 'converting',
-          progress: 0,
-          message: `Converting ${formatInfo.format} to MP4 (this may take a while)...`,
-        });
+        // Check if server-side conversion is available
+        const serverAvailable = await serverVideoConversionService.checkServerAvailability();
+        
+        if (serverAvailable) {
+          onProgress({
+            stage: 'converting',
+            progress: 0,
+            message: `Converting ${formatInfo.format} to MP4 using server (faster)...`,
+          });
 
-        try {
-          processedFile = await videoConversionService.convertVideo(
-            videoFile,
-            (conversionProgress: ConversionProgress) => {
+          try {
+            const result = await serverVideoConversionService.convertVideo(videoFile, (progress: ServerConversionProgress) => {
               onProgress({
                 stage: 'converting',
-                progress: conversionProgress.progress,
-                message: conversionProgress.message,
+                progress: progress.progress,
+                message: progress.message,
               });
+            });
+
+            if (result.success && result.file) {
+              processedFile = result.file;
+              onProgress({
+                stage: 'converting',
+                progress: 100,
+                message: `Server conversion complete! Compression ratio: ${result.compressionRatio?.toFixed(1)}x`,
+              });
+            } else {
+              throw new Error(result.error || 'Server conversion failed');
             }
-          );
-        } catch (conversionError) {
+          } catch (serverError) {
+            console.warn('Server conversion failed, falling back to client-side:', serverError);
+            onProgress({
+              stage: 'converting',
+              progress: 0,
+              message: `Server conversion failed, using client-side conversion...`,
+            });
+            
+            // Fallback to client-side conversion
+            try {
+              processedFile = await videoConversionService.convertVideo(
+                videoFile,
+                (conversionProgress: ConversionProgress) => {
+                  onProgress({
+                    stage: 'converting',
+                    progress: conversionProgress.progress,
+                    message: conversionProgress.message,
+                  });
+                }
+              );
+            } catch (conversionError) {
+              onProgress({
+                stage: 'error',
+                progress: 0,
+                message: `Conversion failed: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}. Please try converting the video manually to MP4.`,
+              });
+              throw new Error(`Video conversion failed: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}. Please try converting the video manually to MP4.`);
+            }
+          }
+        } else {
           onProgress({
-            stage: 'error',
+            stage: 'converting',
             progress: 0,
-            message: `Conversion failed: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}. Please try converting the video manually to MP4.`,
+            message: `Converting ${formatInfo.format} to MP4 using client-side (this may take a while)...`,
           });
-          throw new Error(`Video conversion failed: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}. Please try converting the video manually to MP4.`);
+
+          try {
+            processedFile = await videoConversionService.convertVideo(
+              videoFile,
+              (conversionProgress: ConversionProgress) => {
+                onProgress({
+                  stage: 'converting',
+                  progress: conversionProgress.progress,
+                  message: conversionProgress.message,
+                });
+              }
+            );
+          } catch (conversionError) {
+            onProgress({
+              stage: 'error',
+              progress: 0,
+              message: `Conversion failed: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}. Please try converting the video manually to MP4.`,
+            });
+            throw new Error(`Video conversion failed: ${conversionError instanceof Error ? conversionError.message : 'Unknown error'}. Please try converting the video manually to MP4.`);
+          }
         }
       }
     }

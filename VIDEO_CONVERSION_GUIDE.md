@@ -1,19 +1,26 @@
 # Video Conversion Guide
 
-## Why is video conversion slow?
+## Video Conversion Methods
 
-The application uses FFmpeg.js (WebAssembly) for client-side video conversion, which runs entirely in your browser. This approach has several limitations:
+The application now supports **two conversion methods**:
 
-- **Browser-based processing**: Much slower than native applications
+### 🚀 Server-Side Conversion (Recommended)
+- **Fast FFmpeg processing** on the server
+- **Supports files up to 5GB**
+- **Multi-threaded processing**
+- **Automatic fallback** to client-side if server unavailable
+
+### 🌐 Client-Side Conversion (Fallback)
+- Uses FFmpeg.js (WebAssembly) in your browser
+- **Slower processing** but works offline
 - **Memory constraints**: Limited by browser memory allocation
 - **Single-threaded**: Cannot utilize multiple CPU cores effectively
-- **Large file handling**: Very slow for files over 50-100MB
 
 ## Recommended Solutions
 
-### 1. Use Smaller Video Files (Recommended)
-- **Target size**: Under 50MB for best performance
-- **Maximum size**: 100MB (conversion will be very slow)
+### 1. File Size Guidelines
+- **Target size**: Under 100MB for best performance
+- **Maximum size**: 5GB (conversion may take considerable time)
 - **Tips**:
   - Trim your video to only the relevant sections
   - Reduce resolution (e.g., 720p instead of 1080p)
@@ -69,8 +76,14 @@ These will be automatically converted (but slowly):
 
 ## Troubleshooting
 
+### "413 Request Entity Too Large" Error
+- **Server configuration issue**: The server needs to be restarted with updated settings
+- **Solution**: Restart the development server using `./restart-dev-server.sh`
+- **Alternative**: The app will automatically fall back to client-side conversion
+- **For production**: Ensure nginx and Flask are configured for 5GB uploads
+
 ### "File too large" Error
-- Reduce file size to under 100MB
+- Reduce file size to under 5GB
 - Convert to MP4 manually before uploading
 - Trim video to relevant sections only
 

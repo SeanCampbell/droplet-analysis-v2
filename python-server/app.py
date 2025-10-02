@@ -16,6 +16,9 @@ import logging
 import json
 import re
 import pytesseract
+import subprocess
+import tempfile
+import shutil
 
 # Configure logging based on environment
 debug_mode = os.getenv('DEBUG', 'false').lower() == 'true'
@@ -43,7 +46,7 @@ else:
     CORS(app, origins='*')
 
 # Production configuration
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB max file size (for video uploads)
 
 logger.info(f"Starting Flask app in {'DEBUG' if debug_mode else 'PRODUCTION'} mode")
 
@@ -929,6 +932,67 @@ def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_
     
     return result
 
+def convert_video_with_ffmpeg(input_file_path: str, output_file_path: str) -> dict:
+    """
+    Convert video using FFmpeg with optimized settings for droplet analysis
+    """
+    try:
+        # FFmpeg command for optimal conversion
+        cmd = [
+            'ffmpeg',
+            '-i', input_file_path,
+            '-c:v', 'libx264',           # Use H.264 codec
+            '-c:a', 'aac',               # Use AAC audio codec
+            '-preset', 'fast',           # Fast encoding preset
+            '-crf', '23',                # Good quality (18-28 range)
+            '-movflags', '+faststart',   # Optimize for web streaming
+            '-y',                        # Overwrite output file
+            output_file_path
+        ]
+        
+        logger.debug(f"Running FFmpeg command: {' '.join(cmd)}")
+        
+        # Run FFmpeg with timeout
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=3600  # 1 hour timeout
+        )
+        
+        if result.returncode == 0:
+            # Get file sizes
+            input_size = os.path.getsize(input_file_path)
+            output_size = os.path.getsize(output_file_path)
+            
+            return {
+                "success": True,
+                "input_size": input_size,
+                "output_size": output_size,
+                "compression_ratio": input_size / output_size if output_size > 0 else 1,
+                "message": "Video converted successfully"
+            }
+        else:
+            logger.error(f"FFmpeg error: {result.stderr}")
+            return {
+                "success": False,
+                "error": f"FFmpeg conversion failed: {result.stderr}",
+                "returncode": result.returncode
+            }
+            
+    except subprocess.TimeoutExpired:
+        logger.error("FFmpeg conversion timed out")
+        return {
+            "success": False,
+            "error": "Video conversion timed out (1 hour limit)"
+        }
+    except Exception as e:
+        logger.error(f"Video conversion error: {e}")
+        return {
+            "success": False,
+            "error": f"Conversion failed: {str(e)}"
+        }
+
 # Production routes (only in production mode)
 if os.getenv('FLASK_ENV') != 'development':
     @app.route('/')
@@ -1133,6 +1197,76 @@ if os.getenv('FLASK_ENV') == 'development':
                 "success": False,
                 "error": str(e)
             }), 500
+
+# Video conversion endpoint
+@app.route('/convert-video', methods=['POST'])
+@app.route('/api/convert-video', methods=['POST'])  # Support both routes
+def convert_video():
+    """
+    Convert video file using server-side FFmpeg
+    
+    Expected form data:
+    - file: Video file to convert
+    """
+    try:
+        # Check if file is present
+        if 'file' not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+        
+        # Check file size (5GB limit)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > 5 * 1024 * 1024 * 1024:  # 5GB
+            return jsonify({"error": "File too large. Maximum size is 5GB."}), 413
+        
+        # Create temporary files
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{file.filename}") as input_file:
+            file.save(input_file.name)
+            input_path = input_file.name
+        
+        # Generate output filename
+        base_name = os.path.splitext(file.filename)[0]
+        output_path = os.path.join(tempfile.gettempdir(), f"{base_name}_converted.mp4")
+        
+        logger.info(f"Converting video: {file.filename} ({file_size / (1024*1024):.1f}MB)")
+        
+        # Convert video
+        result = convert_video_with_ffmpeg(input_path, output_path)
+        
+        if result["success"]:
+            # Return the converted file
+            return send_from_directory(
+                os.path.dirname(output_path),
+                os.path.basename(output_path),
+                as_attachment=True,
+                download_name=f"{base_name}_converted.mp4"
+            )
+        else:
+            # Clean up files on error
+            try:
+                os.unlink(input_path)
+                if os.path.exists(output_path):
+                    os.unlink(output_path)
+            except:
+                pass
+            
+            return jsonify({
+                "error": result["error"],
+                "success": False
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Video conversion endpoint error: {e}")
+        return jsonify({
+            "error": f"Conversion failed: {str(e)}",
+            "success": False
+        }), 500
 
 if __name__ == '__main__':
     # Server configuration

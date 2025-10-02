@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server-Side Video Conversion Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            background-color: #fafafa;
+        }
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #e3f2fd;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #007bff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .file-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .download-link {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .download-link:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Server-Side Video Conversion Test</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>📁 Drag and drop a video file here, or click to select</p>
+            <input type="file" id="fileInput" accept="video/*" style="display: none;">
+            <button onclick="document.getElementById('fileInput').click()">Choose Video File</button>
+        </div>
+        
+        <div id="fileInfo" class="file-info" style="display: none;">
+            <h3>📊 File Information</h3>
+            <p><strong>Name:</strong> <span id="fileName"></span></p>
+            <p><strong>Size:</strong> <span id="fileSize"></span></p>
+            <p><strong>Type:</strong> <span id="fileType"></span></p>
+        </div>
+        
+        <div style="text-align: center;">
+            <button id="convertBtn" onclick="convertVideo()" disabled>🚀 Convert Video</button>
+            <button id="checkServerBtn" onclick="checkServer()">🏥 Check Server</button>
+        </div>
+        
+        <div class="progress" id="progressContainer" style="display: none;">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div id="status"></div>
+        
+        <div id="result" style="display: none;">
+            <h3>✅ Conversion Complete!</h3>
+            <div id="conversionInfo"></div>
+            <a id="downloadLink" class="download-link" style="display: none;">📥 Download Converted Video</a>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        const apiBaseUrl = 'http://localhost:5001';
+
+        // File input handling
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+        
+        // Drag and drop handling
+        const uploadArea = document.getElementById('uploadArea');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            selectedFile = file;
+            
+            // Show file info
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+            document.getElementById('fileType').textContent = file.type || 'Unknown';
+            document.getElementById('fileInfo').style.display = 'block';
+            
+            // Enable convert button
+            document.getElementById('convertBtn').disabled = false;
+            
+            // Clear previous results
+            document.getElementById('status').innerHTML = '';
+            document.getElementById('result').style.display = 'none';
+        }
+
+        async function checkServer() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = '<div class="status info">🏥 Checking server status...</div>';
+            
+            try {
+                const response = await fetch(`${apiBaseUrl}/health`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.innerHTML = `
+                        <div class="status success">
+                            ✅ Server is running!<br>
+                            Service: ${data.service}<br>
+                            Debug mode: ${data.debug_mode}
+                        </div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ Server responded with status: ${response.status}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Cannot connect to server: ${error.message}</div>`;
+            }
+        }
+
+        async function convertVideo() {
+            if (!selectedFile) {
+                alert('Please select a video file first');
+                return;
+            }
+
+            const statusDiv = document.getElementById('status');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const convertBtn = document.getElementById('convertBtn');
+            
+            // Reset UI
+            convertBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+            document.getElementById('result').style.display = 'none';
+            
+            statusDiv.innerHTML = '<div class="status info">🚀 Starting conversion...</div>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                
+                // Simulate progress updates
+                const progressInterval = setInterval(() => {
+                    const currentWidth = parseInt(progressBar.style.width) || 0;
+                    if (currentWidth < 90) {
+                        progressBar.style.width = (currentWidth + 10) + '%';
+                    }
+                }, 1000);
+                
+                const response = await fetch(`${apiBaseUrl}/api/convert-video`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    
+                    // Show success
+                    statusDiv.innerHTML = '<div class="status success">✅ Conversion completed successfully!</div>';
+                    
+                    // Show result info
+                    const inputSize = selectedFile.size;
+                    const outputSize = blob.size;
+                    const compressionRatio = (inputSize / outputSize).toFixed(1);
+                    
+                    document.getElementById('conversionInfo').innerHTML = `
+                        <div class="file-info">
+                            <p><strong>Input size:</strong> ${(inputSize / (1024 * 1024)).toFixed(2)} MB</p>
+                            <p><strong>Output size:</strong> ${(outputSize / (1024 * 1024)).toFixed(2)} MB</p>
+                            <p><strong>Compression ratio:</strong> ${compressionRatio}x</p>
+                        </div>
+                    `;
+                    
+                    // Show download link
+                    const downloadLink = document.getElementById('downloadLink');
+                    downloadLink.href = url;
+                    downloadLink.download = `converted_${selectedFile.name.replace(/\.[^/.]+$/, '')}.mp4`;
+                    downloadLink.style.display = 'inline-block';
+                    
+                    document.getElementById('result').style.display = 'block';
+                    
+                } else {
+                    const errorText = await response.text();
+                    statusDiv.innerHTML = `<div class="status error">❌ Conversion failed: ${response.status} ${response.statusText}<br>${errorText}</div>`;
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Conversion error: ${error.message}</div>`;
+            } finally {
+                convertBtn.disabled = false;
+            }
+        }
+
+        // Check server status on page load
+        window.addEventListener('load', checkServer);
+    </script>
+</body>
+</html>

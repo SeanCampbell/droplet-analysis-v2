@@ -153,13 +153,13 @@ class VideoConversionService {
   ): Promise<File> {
     // Check file size and warn if too large
     const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > 1000) {
+    if (fileSizeMB > 5000) {
       onProgress?.({
         progress: 0,
         stage: 'error',
-        message: `File too large (${fileSizeMB.toFixed(1)}MB). Please use a video under 1000MB for conversion.`,
+        message: `File too large (${fileSizeMB.toFixed(1)}MB). Please use a video under 5000MB (5GB) for conversion.`,
       });
-      throw new Error(`File too large: ${fileSizeMB.toFixed(1)}MB. Maximum supported size is 1000MB.`);
+      throw new Error(`File too large: ${fileSizeMB.toFixed(1)}MB. Maximum supported size is 5000MB (5GB).`);
     }
 
     if (!this.ffmpeg) {

@@ -405,7 +405,7 @@ const App: React.FC = () => {
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Supports MP4, WebM, OGG directly. AVI, MOV, WMV, FLV, MKV, 3GP, M4V formats 
-                  will be automatically converted to MP4. <strong>For best performance, use videos under 100MB.</strong>
+                  will be automatically converted to MP4. <strong>Supports videos up to 5GB.</strong>
                 </p>
               </div>
               
