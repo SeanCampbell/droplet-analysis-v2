@@ -206,12 +206,56 @@ def select_best_circles_v4(droplets, max_circles=2):
 
 ---
 
+## Iteration 2: Simplified Hough with Optimized Parameters
+
+### Changes Made:
+- **Approach**: Simplified preprocessing with progressive sensitivity Hough detection
+- **Preprocessing**: Only CLAHE for contrast enhancement (removed complex preprocessing)
+- **Detection**: Single Hough pass with optimized parameters, then progressive sensitivity fallbacks
+- **Post-processing**: Simple duplicate removal with distance checking
+
+### Implementation:
+```python
+def detect_circles_v4(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
+    """
+    V4 Detection Algorithm - Simplified Hough with Optimized Parameters
+    """
+    # Simple preprocessing - just CLAHE for contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    preprocessed = clahe.apply(gray)
+    
+    # Single optimized Hough detection
+    circles = cv2.HoughCircles(
+        preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=100,
+        param1=60, param2=40, minRadius=min_radius, maxRadius=max_radius
+    )
+    
+    # Progressive sensitivity fallbacks if fewer than 2 circles found
+    # 1. More sensitive parameters (param1=40, param2=25)
+    # 2. Very sensitive parameters (param1=30, param2=20)
+```
+
+### Performance Impact:
+- **Actual**: 27,611.39 average total loss (massive improvement!)
+- **vs V2**: 87% better (214,734.15 → 27,611.39)
+- **vs V3**: 90% better (273,717.93 → 27,611.39)
+- **vs Iteration 1**: 97% better (1,137,032.42 → 27,611.39)
+
+### Analysis:
+- **Success**: Simplified approach works much better than complex preprocessing
+- **Key Insight**: CLAHE alone provides sufficient contrast enhancement
+- **Progressive Sensitivity**: Fallback approach ensures we find circles even in challenging images
+- **Next Steps**: This is already significantly better than V2 and V3! Consider fine-tuning parameters
+
+---
+
 ## Performance Summary
 
 | Iteration | Average Total Loss | vs V2 | vs V3 | Notes |
 |-----------|-------------------|-------|-------|-------|
 | Baseline (Placeholder) | 497,789.74 | 232% worse | 82% worse | Random values |
-| Iteration 1 | TBD | TBD | TBD | Enhanced Multi-Scale Hough |
+| Iteration 1 | 1,137,032.42 | 430% worse | 315% worse | Enhanced Multi-Scale Hough |
+| Iteration 2 | 27,611.39 | 87% better | 90% better | Simplified Hough with Progressive Sensitivity |
 
 ## Key Learnings
 
