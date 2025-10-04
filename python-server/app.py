@@ -1440,79 +1440,22 @@ def detect_with_optimized_microscope_2(gray, min_radius, max_radius):
     """
     Optimized detection specifically for microscope_2 (frames 7-9)
     """
-    # V9 Iteration 4: Use V3's hybrid approach with microscope_2 optimized parameters
+    # V9 Iteration 7: Use V7's approach with enhanced preprocessing for microscope_2
     params = get_optimized_microscope_2_parameters()
     
-    # Use V3's preprocessing (CLAHE only)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
+    # Enhanced preprocessing specifically for microscope_2 (high brightness, high edge density)
+    # 1. Brightness normalization
+    normalized = cv2.convertScaleAbs(gray, alpha=0.8, beta=-30)
     
-    # Use V3's hybrid approach but with microscope_2 parameters
-    # Try Hough first with microscope_2 parameters
-    circles = cv2.HoughCircles(
-        enhanced,
-        cv2.HOUGH_GRADIENT,
-        dp=1,
-        minDist=params['minDist'],
-        param1=params['param1'],
-        param2=params['param2'],
-        minRadius=200,  # Different radius range for microscope_2
-        maxRadius=400
-    )
+    # 2. Apply CLAHE with higher clip limit for high contrast
+    clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(normalized)
     
-    droplets = []
+    # 3. Apply bilateral filter to reduce noise while preserving edges
+    preprocessed = cv2.bilateralFilter(enhanced, 9, 75, 75)
     
-    if circles is not None:
-        circles = np.round(circles[0, :]).astype("int")
-        logger.debug(f"V9 Microscope_2: Hough found {len(circles)} circles")
-        
-        # Take the first 2 circles
-        for i, circle in enumerate(circles[:2]):
-            x, y, r = circle
-            droplets.append({
-                'cx': x,
-                'cy': y,
-                'r': r,
-                'id': i
-            })
-    
-    # If we don't have 2 circles, use template matching fallback
-    if len(droplets) < 2:
-        logger.debug("V9 Microscope_2: Supplementing with template matching")
-        template_circles = detect_circles_optimized_template_matching(gray)
-        
-        # Add template matching results, avoiding duplicates
-        existing_positions = [(d['cx'], d['cy']) for d in droplets]
-        
-        for circle in template_circles:
-            if len(droplets) >= 2:
-                break
-                
-            if isinstance(circle, dict):
-                x, y, r = circle['cx'], circle['cy'], circle['r']
-            else:
-                x, y, r = circle[0], circle[1], circle[2]
-            
-            # Check if this position is too close to existing droplets
-            too_close = False
-            for ex_x, ex_y in existing_positions:
-                if np.sqrt((x - ex_x)**2 + (y - ex_y)**2) < 100:
-                    too_close = True
-                    break
-            
-            if not too_close:
-                droplets.append({
-                    'cx': x,
-                    'cy': y,
-                    'r': r,
-                    'id': len(droplets)
-                })
-                existing_positions.append((x, y))
-    
-    # If still not enough, generate fallbacks
-    while len(droplets) < 2:
-        fallback = generate_fast_fallback_circle(gray, min_radius, max_radius, droplets)
-        droplets.append(fallback)
+    # Apply V7's progressive sensitivity approach
+    droplets = detect_with_parameters(preprocessed, params, min_radius, max_radius)
     
     return droplets
 
