@@ -1,0 +1,741 @@
+{
+  "evaluation_summary": {
+    "num_frames": 11,
+    "total_droplet_loss": 3233278.174789032,
+    "total_scale_loss": 90123.75597788935,
+    "total_loss": 3323401.9307669224,
+    "avg_droplet_loss": 293934.3795262756,
+    "avg_scale_loss": 8193.068725262669,
+    "avg_total_loss": 302127.4482515384,
+    "total_droplet_count_diff": 0,
+    "avg_droplet_count_diff": 0.0
+  },
+  "frame_results": [
+    {
+      "frame": "frame_0001.jpeg",
+      "droplet_loss": 303564.1878201415,
+      "scale_loss": 17431,
+      "total_loss": 320995.1878201415,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 1,
+        "timestamp": "111.218",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1188.8457519821352,
+            "cy": 513.6530136530138,
+            "id": 0,
+            "r": 289.91643504765534
+          },
+          {
+            "cx": 664.3738091823566,
+            "cy": 535.5061605061607,
+            "id": 1,
+            "r": 305.94543539069707
+          }
+        ],
+        "scale": {
+          "label": "50 \u00b5m",
+          "length": 189,
+          "x1": 1490,
+          "x2": 1679,
+          "y1": 1044,
+          "y2": 1044
+        }
+      },
+      "prediction": {
+        "timestamp": "111.218",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 780,
+            "cy": 319,
+            "r": 317,
+            "id": 0
+          },
+          {
+            "cx": 417,
+            "cy": 418,
+            "r": 155,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1593,
+          "y1": 1051,
+          "x2": 1761,
+          "y2": 1051,
+          "label": "50 \u00b5m",
+          "length": 168
+        }
+      }
+    },
+    {
+      "frame": "frame_0000.jpeg",
+      "droplet_loss": 1229700.8720288703,
+      "scale_loss": 8,
+      "total_loss": 1229708.8720288703,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 0,
+        "timestamp": "4.480",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 865.421387255605,
+            "cy": 861.8464868464871,
+            "id": 0,
+            "r": 314.68316567986733
+          },
+          {
+            "cx": 1370.9540654542807,
+            "cy": 455.3779553779556,
+            "id": 1,
+            "r": 282.63585734569904
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 301,
+          "x1": 1493,
+          "x2": 1794,
+          "y1": 1043,
+          "y2": 1043
+        }
+      },
+      "prediction": {
+        "timestamp": "4.480",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 780,
+            "cy": 319,
+            "r": 317,
+            "id": 0
+          },
+          {
+            "cx": 417,
+            "cy": 418,
+            "r": 155,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1491,
+          "y1": 1043,
+          "x2": 1796,
+          "y2": 1043,
+          "label": "100 \u00b5m",
+          "length": 305
+        }
+      }
+    },
+    {
+      "frame": "frame_0007.jpeg",
+      "droplet_loss": 153431.16451553264,
+      "scale_loss": 33019.3774169507,
+      "total_loss": 186450.54193248335,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 0,
+        "timestamp": "Not Found",
+        "timestampFound": false,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 603.7680031140521,
+            "cy": 248.75915268764538,
+            "id": 0,
+            "r": 142.65915471879805
+          },
+          {
+            "cx": 103,
+            "cy": 339,
+            "id": 1,
+            "r": 130.8355743957802
+          }
+        ],
+        "scale": {
+          "label": "50 \u00b5m",
+          "length": 317.4104197824261,
+          "x1": 362.1437790661941,
+          "x2": 679.5541988486202,
+          "y1": 472.55322911989987,
+          "y2": 472.55322911989987
+        }
+      },
+      "prediction": {
+        "timestamp": "Not Found",
+        "timestampFound": false,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 448,
+            "cy": 268,
+            "r": 332,
+            "id": 0
+          },
+          {
+            "cx": 319,
+            "cy": 191,
+            "r": 287,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 491,
+          "y1": 457,
+          "x2": 553,
+          "y2": 460,
+          "label": "50 \u00b5m",
+          "length": 62
+        }
+      }
+    },
+    {
+      "frame": "frame_0011.jpeg",
+      "droplet_loss": 78615.46849695465,
+      "scale_loss": 133,
+      "total_loss": 78748.46849695465,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 1,
+        "timestamp": "147.438",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 850,
+            "cy": 436,
+            "id": 0,
+            "r": 289
+          },
+          {
+            "cx": 498.095223563058,
+            "cy": 520.9523773193359,
+            "id": 1,
+            "r": 360.10202635885724
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 304,
+          "x1": 1491,
+          "x2": 1795,
+          "y1": 1052,
+          "y2": 1052
+        }
+      },
+      "prediction": {
+        "timestamp": "147.438",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 780,
+            "cy": 319,
+            "r": 317,
+            "id": 0
+          },
+          {
+            "cx": 417,
+            "cy": 418,
+            "r": 155,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1490,
+          "y1": 1044,
+          "x2": 1797,
+          "y2": 1044,
+          "label": "100 \u00b5m",
+          "length": 307
+        }
+      }
+    },
+    {
+      "frame": "frame_0010.jpeg",
+      "droplet_loss": 566407.0,
+      "scale_loss": 130,
+      "total_loss": 566537.0,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 0,
+        "timestamp": "40.456",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 480,
+            "cy": 544,
+            "id": 0,
+            "r": 343
+          },
+          {
+            "cx": 1484,
+            "cy": 440,
+            "id": 1,
+            "r": 286
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 305,
+          "x1": 1491,
+          "x2": 1796,
+          "y1": 1052,
+          "y2": 1052
+        }
+      },
+      "prediction": {
+        "timestamp": "40.456",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 780,
+            "cy": 319,
+            "r": 317,
+            "id": 0
+          },
+          {
+            "cx": 417,
+            "cy": 418,
+            "r": 155,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1490,
+          "y1": 1044,
+          "x2": 1797,
+          "y2": 1044,
+          "label": "100 \u00b5m",
+          "length": 307
+        }
+      }
+    },
+    {
+      "frame": "frame_0013.jpeg",
+      "droplet_loss": 85862.94420475196,
+      "scale_loss": 123.4152919226701,
+      "total_loss": 85986.35949667463,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 3,
+        "timestamp": "362.212",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 500.9523664202009,
+            "cy": 518.095234462193,
+            "id": 0,
+            "r": 382.85714285714283
+          },
+          {
+            "cx": 789.5237949916295,
+            "cy": 432.3809487479074,
+            "id": 1,
+            "r": 254.30176514350427
+          }
+        ],
+        "scale": {
+          "label": "50 \u00b5m",
+          "length": 314.04763357979914,
+          "x1": 1480.9523664202009,
+          "x2": 1795,
+          "y1": 1046.6666630336217,
+          "y2": 1046.6666630336217
+        }
+      },
+      "prediction": {
+        "timestamp": "362.212",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 780,
+            "cy": 319,
+            "r": 317,
+            "id": 0
+          },
+          {
+            "cx": 417,
+            "cy": 418,
+            "r": 155,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1490,
+          "y1": 1051,
+          "x2": 1797,
+          "y2": 1051,
+          "label": "100 \u00b5m",
+          "length": 307
+        }
+      }
+    },
+    {
+      "frame": "frame_0009.jpeg",
+      "droplet_loss": 75563.31978869057,
+      "scale_loss": 21303.973357516687,
+      "total_loss": 96867.29314620726,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 2,
+        "timestamp": "Not Found",
+        "timestampFound": false,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 450.41240703939684,
+            "cy": 311.1718433261227,
+            "id": 0,
+            "r": 148.04894553708306
+          },
+          {
+            "cx": 215.02939911085616,
+            "cy": 246.08432308885352,
+            "id": 1,
+            "r": 125.71908641328423
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 315.6272151769068,
+          "x1": 363.0353813689537,
+          "x2": 678.6625965458605,
+          "y1": 473.4448389861638,
+          "y2": 473.4448389861638
+        }
+      },
+      "prediction": {
+        "timestamp": "Not Found",
+        "timestampFound": false,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 448,
+            "cy": 268,
+            "r": 332,
+            "id": 0
+          },
+          {
+            "cx": 319,
+            "cy": 191,
+            "r": 287,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 448,
+          "y1": 472,
+          "x2": 560,
+          "y2": 472,
+          "label": "100 \u00b5m",
+          "length": 112
+        }
+      }
+    },
+    {
+      "frame": "frame_0008.jpeg",
+      "droplet_loss": 75608.11948644502,
+      "scale_loss": 17668.989911499295,
+      "total_loss": 93277.10939794432,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 1,
+        "timestamp": "Not Found",
+        "timestampFound": false,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 511.0413636270513,
+            "cy": 308.49701372733085,
+            "id": 0,
+            "r": 145.33391034687455
+          },
+          {
+            "cx": 268.52553727643357,
+            "cy": 277.2906684080922,
+            "id": 1,
+            "r": 128.3938274539146
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 317.4104197824261,
+          "x1": 362.1437790661941,
+          "x2": 679.5541988486202,
+          "y1": 473.4448389861638,
+          "y2": 473.4448389861638
+        }
+      },
+      "prediction": {
+        "timestamp": "Not Found",
+        "timestampFound": false,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 448,
+            "cy": 268,
+            "r": 332,
+            "id": 0
+          },
+          {
+            "cx": 319,
+            "cy": 191,
+            "r": 287,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 489,
+          "y1": 471,
+          "x2": 640,
+          "y2": 471,
+          "label": "200 \u00b5m",
+          "length": 151
+        }
+      }
+    },
+    {
+      "frame": "frame_0012.jpeg",
+      "droplet_loss": 78293.12791458523,
+      "scale_loss": 171,
+      "total_loss": 78464.12791458523,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 2,
+        "timestamp": "253.902",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 803.8095092773438,
+            "cy": 432.3809487479074,
+            "id": 0,
+            "r": 282.44069215506676
+          },
+          {
+            "cx": 506.66665213448664,
+            "cy": 518.095234462193,
+            "id": 1,
+            "r": 368.5825026021851
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 302,
+          "x1": 1491,
+          "x2": 1793,
+          "y1": 1043,
+          "y2": 1043
+        }
+      },
+      "prediction": {
+        "timestamp": "253.902",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 780,
+            "cy": 319,
+            "r": 317,
+            "id": 0
+          },
+          {
+            "cx": 417,
+            "cy": 418,
+            "r": 155,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1491,
+          "y1": 1052,
+          "x2": 1796,
+          "y2": 1052,
+          "label": "100 \u00b5m",
+          "length": 305
+        }
+      }
+    },
+    {
+      "frame": "frame_0003.jpeg",
+      "droplet_loss": 286958.3411194322,
+      "scale_loss": 5,
+      "total_loss": 286963.3411194322,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 3,
+        "timestamp": "324.893",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1181.5614194432494,
+            "cy": 512.1961371961371,
+            "id": 0,
+            "r": 304.48510012542715
+          },
+          {
+            "cx": 655.6326101356937,
+            "cy": 534.0492840492841,
+            "id": 1,
+            "r": 288.46324752249336
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 302,
+          "x1": 1493,
+          "x2": 1795,
+          "y1": 1052,
+          "y2": 1052
+        }
+      },
+      "prediction": {
+        "timestamp": "324.893",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 780,
+            "cy": 319,
+            "r": 317,
+            "id": 0
+          },
+          {
+            "cx": 417,
+            "cy": 418,
+            "r": 155,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1491,
+          "y1": 1052,
+          "x2": 1796,
+          "y2": 1052,
+          "label": "100 \u00b5m",
+          "length": 305
+        }
+      }
+    },
+    {
+      "frame": "frame_0002.jpeg",
+      "droplet_loss": 299273.62941362825,
+      "scale_loss": 130,
+      "total_loss": 299403.62941362825,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 2,
+        "timestamp": "218.017",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1187.3888854743582,
+            "cy": 516.5667665667665,
+            "id": 0,
+            "r": 296.78623723230464
+          },
+          {
+            "cx": 661.4600761668023,
+            "cy": 534.0492840492841,
+            "id": 1,
+            "r": 298.66118745465803
+          }
+        ],
+        "scale": {
+          "label": "100 \u00b5m",
+          "length": 307,
+          "x1": 1490,
+          "x2": 1797,
+          "y1": 1051,
+          "y2": 1051
+        }
+      },
+      "prediction": {
+        "timestamp": "218.017",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 780,
+            "cy": 319,
+            "r": 317,
+            "id": 0
+          },
+          {
+            "cx": 417,
+            "cy": 418,
+            "r": 155,
+            "id": 1
+          }
+        ],
+        "scale": {
+          "x1": 1491,
+          "y1": 1043,
+          "x2": 1796,
+          "y2": 1043,
+          "label": "100 \u00b5m",
+          "length": 305
+        }
+      }
+    }
+  ]
+}

@@ -11,7 +11,7 @@ This document tracks the development and iteration of the V7 droplet detection a
 - **V4 (Advanced Hough Detection)**: 27,611.39 average total loss (87% better than V2)
 - **V5 (Optimized Hough Detection)**: 18,812.52 average total loss (91% better than V2, 32% better than V4)
 - **V6 (Ultra-Optimized Hough Detection)**: 19,516.92 average total loss (91% better than V2, 4% better than V5)
-- **V7 (Placeholder)**: TBD
+- **V7 (Placeholder)**: 302,127.45 average total loss
 
 ### Key Observations:
 - V6 is currently the best performer with 91% improvement over V2 and 4% improvement over V5
@@ -67,7 +67,7 @@ def detect_circles_v7(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 | Iteration | Average Total Loss | vs V2 | vs V3 | vs V4 | vs V5 | vs V6 | Notes |
 |-----------|-------------------|-------|-------|-------|-------|-------|-------|
-| Baseline (Placeholder) | TBD | TBD | TBD | TBD | TBD | TBD | Random values |
+| Baseline (Placeholder) | 302,127.45 | 41% worse | 10% worse | 994% worse | 1,505% worse | 1,448% worse | Random values |
 | Iteration 1 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 
 ## Key Learnings from V6 Development
