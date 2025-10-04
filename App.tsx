@@ -168,49 +168,50 @@ const App: React.FC = () => {
     setAnalyses(prev => prev.map(a => a.frame === newAnalysis.frame ? newAnalysis : a));
   };
 
-  const handleExportCSV = () => {
-    if (analyses.length === 0) return;
+  const handleExportAll = async () => {
+    if (analyses.length === 0 || status !== 'ready') return;
 
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Frame,Timestamp,Scale_Pixels,Scale_Label,Droplet_1_cx,Droplet_1_cy,Droplet_1_radius,Droplet_2_cx,Droplet_2_cy,Droplet_2_radius\n";
-
-    analyses.forEach(a => {
-      const d1 = a.droplets[0] || { cx: '', cy: '', r: '' };
-      const d2 = a.droplets[1] || { cx: '', cy: '', r: '' };
-      const row = [a.frame, `"${a.timestamp}"`, a.scale.length, `"${a.scale.label}"`, d1.cx, d1.cy, d1.r, d2.cx, d2.cy, d2.r].join(",");
-      csvContent += row + "\n";
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "droplet_analysis.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadZip = async () => {
-    if (status !== 'ready' || frames.length === 0) return;
-
-    setStatus('analyzing'); // Show a status while zipping
+    setStatus('analyzing'); // Show a status while creating export
     setProgress(0);
 
-    const zip = new JSZip();
-    const rawFolder = zip.folder('raw');
-    const processedFolder = zip.folder('processed');
+    try {
+      const zip = new JSZip();
+      
+      // 1. Add CSV analysis data
+      let csvContent = "Frame,Timestamp,Scale_Pixels,Scale_Label,Droplet_1_cx,Droplet_1_cy,Droplet_1_radius,Droplet_2_cx,Droplet_2_cy,Droplet_2_radius\n";
+      analyses.forEach(a => {
+        const d1 = a.droplets[0] || { cx: '', cy: '', r: '' };
+        const d2 = a.droplets[1] || { cx: '', cy: '', r: '' };
+        const row = [a.frame, `"${a.timestamp}"`, a.scale.length, `"${a.scale.label}"`, d1.cx, d1.cy, d1.r, d2.cx, d2.cy, d2.r].join(",");
+        csvContent += row + "\n";
+      });
+      zip.file("analysis.csv", csvContent);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = imageDimensions.width;
-    canvas.height = imageDimensions.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        setError("Could not create canvas for ZIP export.");
+      // 2. Add JSON analysis data (for loading back into the app)
+      const analysisData = {
+        analyses,
+        imageDimensions,
+        frameInterval,
+        detectionMethod,
+        videoFileName: videoFile?.name || 'unknown',
+        exportDate: new Date().toISOString()
+      };
+      zip.file("analysis_data.json", JSON.stringify(analysisData, null, 2));
+
+      // 3. Add raw and processed frames
+      const rawFolder = zip.folder('raw');
+      const processedFolder = zip.folder('processed');
+      const canvas = document.createElement('canvas');
+      canvas.width = imageDimensions.width;
+      canvas.height = imageDimensions.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setError("Could not create canvas for export.");
         setStatus('error');
         return;
-    }
+      }
 
-    for (let i = 0; i < frames.length; i++) {
+      for (let i = 0; i < frames.length; i++) {
         const frameData = frames[i];
         const analysis = analyses[i];
         const baseName = `frame_${String(i).padStart(4, '0')}`;
@@ -231,7 +232,7 @@ const App: React.FC = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, 0, 0);
 
-                // Draw analysis (without handles)
+                // Draw analysis
                 if (analysis) {
                     analysis.droplets.forEach(d => {
                         ctx.beginPath();
@@ -262,17 +263,103 @@ const App: React.FC = () => {
             };
         });
         setProgress(((i + 1) / frames.length) * 100);
+      }
+
+      // 4. Add original video if available
+      if (videoFile) {
+        zip.file(`original_video/${videoFile.name}`, videoFile);
+      }
+
+      // 5. Add video info
+      zip.file("video_info.txt", `Original video: ${videoFile?.name || 'unknown'}\nFormat: ${videoFile?.type || 'unknown'}\nFrames extracted: ${frames.length}\nFrame interval: ${frameInterval}ms\nDetection method: ${detectionMethod}`);
+
+      // Generate and download the zip
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `droplet_analysis_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setStatus('ready');
+    } catch (error) {
+      console.error('Export error:', error);
+      setError('Failed to create export package');
+      setStatus('error');
+    }
+  };
+
+  const handleLoadAnalysis = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.zip')) {
+      setError('Please select a valid analysis ZIP file');
+      return;
+    }
+
+    setStatus('analyzing');
+    setError(null);
+    setProgress(0);
+
+    try {
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(file);
+      
+      // Check if this is a valid analysis file
+      if (!zipContent.files['analysis_data.json']) {
+        setError('Invalid analysis file format');
+        setStatus('error');
+        return;
+      }
+
+      // Load analysis data
+      const analysisDataContent = await zipContent.files['analysis_data.json'].async('text');
+      const analysisData = JSON.parse(analysisDataContent);
+      
+      // Restore application state
+      setAnalyses(analysisData.analyses);
+      setImageDimensions(analysisData.imageDimensions);
+      setFrameInterval(analysisData.frameInterval);
+      setDetectionMethod(analysisData.detectionMethod);
+      
+      // Load frames from raw folder
+      const rawFolder = zipContent.folder('raw');
+      if (!rawFolder) {
+        setError('No raw frames found in analysis file');
+        setStatus('error');
+        return;
+      }
+
+      const frameFiles = Object.keys(rawFolder.files)
+        .filter(name => name.endsWith('.jpeg'))
+        .sort();
+      
+      const loadedFrames: string[] = [];
+      for (let i = 0; i < frameFiles.length; i++) {
+        const frameFile = rawFolder.files[frameFiles[i]];
+        const frameData = await frameFile.async('base64');
+        loadedFrames.push(frameData);
+        setProgress(((i + 1) / frameFiles.length) * 100);
+      }
+      
+      setFrames(loadedFrames);
+      setCurrentFrame(0);
+      setStatus('ready');
+      
+      // Show success message
+      setError(`✅ Successfully loaded analysis with ${loadedFrames.length} frames from ${analysisData.videoFileName}`);
+      setTimeout(() => setError(null), 5000);
+      
+    } catch (error) {
+      console.error('Load error:', error);
+      setError('Failed to load analysis file');
+      setStatus('error');
     }
     
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(zipBlob);
-    link.download = 'droplet_frames.zip';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setStatus('ready');
+    // Reset file input
+    e.target.value = '';
   };
   
   const currentAnalysis = useMemo(() => {
@@ -317,7 +404,7 @@ const App: React.FC = () => {
       case 'ready':
         return <p className="text-green-500">Analysis complete. Review and correct frames as needed.</p>;
       case 'error':
-        return <p className="text-red-500 font-semibold">Error: {error}</p>;
+        return <p className={error?.startsWith('✅') ? "text-green-500 font-semibold" : "text-red-500 font-semibold"}>{error?.startsWith('✅') ? error : `Error: ${error}`}</p>;
     }
   };
 
@@ -502,23 +589,28 @@ const App: React.FC = () => {
               </div>
 
               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">6. Export & Download</label>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">6. Export & Load</label>
                  <div className="flex space-x-2">
                     <button
-                      onClick={handleExportCSV}
+                      onClick={handleExportAll}
                       disabled={status !== 'ready'}
                       className="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-300"
                     >
-                      Export CSV
+                      Export All (CSV + Frames + Video)
                     </button>
-                    <button
-                      onClick={handleDownloadZip}
-                      disabled={status !== 'ready'}
-                      className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-300"
-                    >
-                      Download Frames
-                    </button>
+                    <label className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 cursor-pointer transition duration-300 text-center">
+                      Load Analysis
+                      <input
+                        type="file"
+                        accept=".zip"
+                        onChange={handleLoadAnalysis}
+                        className="hidden"
+                      />
+                    </label>
                  </div>
+                 <p className="text-xs text-gray-500 mt-1">
+                   Export includes CSV data, processed frames, original video, and analysis metadata. Load restores a previous analysis.
+                 </p>
               </div>
 
               <div className="pt-4 border-t">
