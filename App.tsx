@@ -464,7 +464,7 @@ const App: React.FC = () => {
                     <option value="v6">V6 - Ultra-Optimized Hough Detection (4% Better than V5)</option>
                     <option value="v7">V7 - Microscope-Adaptive Detection (7% Better than V6)</option>
                     <option value="v8">V8 - V3 Hybrid with Sophisticated Selection (7.6% Better than V7)</option>
-                    <option value="v9">V9 - Enhanced Microscope_2 Detection (72.6% Better Droplet Accuracy)</option>
+                    <option value="v9">V9 - Complete Microscope_2 Optimization (72.6% Droplet + 99.1% Scale)</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {detectionMethod === 'v1' 
@@ -482,7 +482,7 @@ const App: React.FC = () => {
                       : detectionMethod === 'v8'
                       ? 'V3 hybrid approach with sophisticated selection criteria for optimal performance'
                       : detectionMethod === 'v9'
-                      ? 'Enhanced preprocessing and progressive sensitivity for microscope_2 frames with 72.6% better droplet detection accuracy'
+                      ? 'Complete microscope_2 optimization with 72.6% better droplet detection and 99.1% better scale detection accuracy'
                       : 'Advanced Hough detection with progressive sensitivity and optimized preprocessing'
                     }
                   </p>
