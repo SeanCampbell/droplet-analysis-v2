@@ -1199,13 +1199,9 @@ def detect_circles_v8(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     microscope_type = classify_microscope(gray)
     logger.debug(f"V8 Detection: Classified microscope as: {microscope_type}")
     
-    # 2. Select approach based on microscope type with improved V3 parameters
-    if microscope_type in ['microscope_a']:  # Only use V3 for highest quality microscopes
-        # Use V3's hybrid approach with microscope-specific parameters
-        droplets = detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius)
-    else:  # Use V7's approach for others
-        # Use V7's adaptive approach
-        droplets = detect_with_v7_adaptive(gray, microscope_type, min_radius, max_radius)
+    # 2. Use V7's approach but with V3's template matching enhancement
+    # This iteration tests if V3's template matching can improve V7's performance
+    droplets = detect_with_v7_enhanced_template(gray, microscope_type, min_radius, max_radius)
     
     logger.debug(f"V8 Detection: Found {len(droplets)} droplets using V3 hybrid approach")
     for i, droplet in enumerate(droplets):
@@ -1325,6 +1321,55 @@ def get_v3_parameters_for_microscope(microscope_type):
     }
     
     return parameter_sets.get(microscope_type, parameter_sets['microscope_a'])
+
+def detect_with_v7_enhanced_template(gray, microscope_type, min_radius, max_radius):
+    """
+    Use V7's approach but with V3's template matching enhancement
+    """
+    # Get optimized parameters for this microscope type
+    params = get_parameters_for_microscope(microscope_type)
+    
+    # Simple preprocessing - just CLAHE for contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    preprocessed = clahe.apply(gray)
+    
+    # Apply microscope-specific detection with progressive sensitivity
+    droplets = detect_with_parameters(preprocessed, params, min_radius, max_radius)
+    
+    # If we don't have 2 circles, use V3's template matching enhancement
+    if len(droplets) < 2:
+        logger.debug("V8 Enhanced: Supplementing with V3's template matching")
+        template_circles = detect_circles_optimized_template_matching(gray)
+        
+        # Add template matching results, avoiding duplicates
+        existing_positions = [(d['cx'], d['cy']) for d in droplets]
+        
+        for circle in template_circles:
+            if len(droplets) >= 2:
+                break
+                
+            if isinstance(circle, dict):
+                x, y, r = circle['cx'], circle['cy'], circle['r']
+            else:
+                x, y, r = circle[0], circle[1], circle[2]
+            
+            # Check if this position is too close to existing droplets
+            too_close = False
+            for ex_x, ex_y in existing_positions:
+                if np.sqrt((x - ex_x)**2 + (y - ex_y)**2) < 100:  # Stricter distance
+                    too_close = True
+                    break
+            
+            if not too_close:
+                droplets.append({
+                    'cx': x,
+                    'cy': y,
+                    'r': r,
+                    'id': len(droplets)
+                })
+                existing_positions.append((x, y))
+    
+    return droplets
 
 def create_enhanced_preprocessing(gray):
     """
