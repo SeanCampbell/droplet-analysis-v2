@@ -812,55 +812,125 @@ def detect_circles_v5(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 def detect_circles_v6(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
-    V6 Detection Algorithm - Placeholder for Future Development
+    V6 Detection Algorithm - Contour-Based Detection with Circularity Analysis
     
-    This is a placeholder algorithm for future development and testing.
-    Currently returns random values but can be replaced with more sophisticated
-    detection methods.
+    This algorithm uses contour detection and circularity analysis to find droplets,
+    combining the best of traditional computer vision with shape analysis.
     
     Args:
         image: OpenCV image
         min_radius: Minimum circle radius
         max_radius: Maximum circle radius
-        dp: Inverse ratio of accumulator resolution (unused in v6)
-        min_dist: Minimum distance between circle centers (unused in v6)
-        param1: Upper threshold for edge detection (unused in v6)
-        param2: Accumulator threshold for center detection (unused in v6)
+        dp: Inverse ratio of accumulator resolution
+        min_dist: Minimum distance between circle centers
+        param1: Upper threshold for edge detection
+        param2: Accumulator threshold for center detection
     
     Returns:
         List of detected circles with format [cx, cy, r]
     """
     height, width = image.shape[:2]
     
-    logger.debug(f"V6 Detection: Starting placeholder algorithm on {width}x{height} image")
+    logger.debug(f"V6 Detection: Starting contour-based detection with circularity analysis on {width}x{height} image")
     
-    # Placeholder implementation - returns random values for testing
-    # This will be replaced with a more sophisticated algorithm in the future
-    np.random.seed(101112)  # Different seed from v2, v3, v4, and v5 for variety
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
     
-    # Generate two random droplets within the image bounds
+    # Preprocessing for contour detection
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    
+    # Apply Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(enhanced, (5, 5), 0)
+    
+    # Edge detection using Canny
+    edges = cv2.Canny(blurred, 50, 150)
+    
+    # Find contours
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
     droplets = []
-    for i in range(2):
-        # Random center position (with some margin from edges)
-        margin = 150
-        cx = np.random.randint(margin, width - margin)
-        cy = np.random.randint(margin, height - margin)
+    
+    # Analyze each contour for circularity
+    for contour in contours:
+        # Calculate contour area
+        area = cv2.contourArea(contour)
         
-        # Random radius within the specified range, biased toward larger circles
-        r = np.random.randint(min_radius, max_radius)
+        # Skip very small contours
+        if area < 100:
+            continue
         
-        droplets.append({
-            'cx': cx,
-            'cy': cy,
-            'r': r,
+        # Calculate perimeter
+        perimeter = cv2.arcLength(contour, True)
+        
+        if perimeter == 0:
+            continue
+        
+        # Calculate circularity (4π*area/perimeter²)
+        circularity = 4 * np.pi * area / (perimeter * perimeter)
+        
+        # Only consider highly circular contours
+        if circularity < 0.7:
+            continue
+        
+        # Get minimum enclosing circle
+        (x, y), radius = cv2.minEnclosingCircle(contour)
+        
+        # Check if radius is within acceptable range
+        if min_radius <= radius <= max_radius:
+            # Calculate additional metrics for validation
+            # Check if the contour is roughly circular by comparing with fitted circle
+            fitted_circle_area = np.pi * radius * radius
+            area_ratio = area / fitted_circle_area
+            
+            # Accept if area ratio is reasonable (contour fills most of the circle)
+            if 0.6 <= area_ratio <= 1.0:
+                droplets.append({
+                    'cx': int(x),
+                    'cy': int(y),
+                    'r': int(radius),
+                    'id': len(droplets),
+                    'circularity': circularity,
+                    'area_ratio': area_ratio
+                })
+    
+    # Sort by circularity and area ratio (prefer more circular and well-filled contours)
+    droplets.sort(key=lambda d: d['circularity'] * d['area_ratio'], reverse=True)
+    
+    # Remove duplicates based on distance
+    filtered_droplets = []
+    for droplet in droplets:
+        too_close = False
+        for existing in filtered_droplets:
+            dist = np.sqrt((droplet['cx'] - existing['cx'])**2 + (droplet['cy'] - existing['cy'])**2)
+            if dist < 120:  # Minimum distance threshold
+                too_close = True
+                break
+        
+        if not too_close:
+            filtered_droplets.append(droplet)
+    
+    # Limit to 2 droplets maximum
+    final_droplets = filtered_droplets[:2]
+    
+    # Remove metadata for final output
+    result_droplets = []
+    for i, droplet in enumerate(final_droplets):
+        result_droplets.append({
+            'cx': droplet['cx'],
+            'cy': droplet['cy'],
+            'r': droplet['r'],
             'id': i
         })
     
-    logger.debug(f"V6 Detection: Generated {len(droplets)} placeholder droplets")
-    for i, droplet in enumerate(droplets):
+    logger.debug(f"V6 Detection: Found {len(result_droplets)} droplets using contour-based detection")
+    for i, droplet in enumerate(result_droplets):
         logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
-    return droplets
+    return result_droplets
 
 def create_enhanced_preprocessing(gray):
     """
