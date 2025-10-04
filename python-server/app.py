@@ -584,55 +584,178 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 def detect_circles_v4(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
-    V4 Detection Algorithm - Placeholder for Future Development
+    V4 Detection Algorithm - Enhanced Multi-Scale Hough with Advanced Preprocessing
     
-    This is a placeholder algorithm for future development and testing.
-    Currently returns random values but can be replaced with more sophisticated
-    detection methods.
+    This algorithm uses advanced preprocessing and multi-scale Hough detection
+    to improve accuracy over previous versions.
     
     Args:
         image: OpenCV image
         min_radius: Minimum circle radius
         max_radius: Maximum circle radius
-        dp: Inverse ratio of accumulator resolution (unused in v4)
-        min_dist: Minimum distance between circle centers (unused in v4)
-        param1: Upper threshold for edge detection (unused in v4)
-        param2: Accumulator threshold for center detection (unused in v4)
+        dp: Inverse ratio of accumulator resolution
+        min_dist: Minimum distance between circle centers
+        param1: Upper threshold for edge detection
+        param2: Accumulator threshold for center detection
     
     Returns:
         List of detected circles with format [cx, cy, r]
     """
     height, width = image.shape[:2]
     
-    logger.debug(f"V4 Detection: Starting placeholder algorithm on {width}x{height} image")
+    logger.debug(f"V4 Detection: Starting enhanced multi-scale Hough on {width}x{height} image")
     
-    # Placeholder implementation - returns random values for testing
-    # This will be replaced with a more sophisticated algorithm in the future
-    np.random.seed(456)  # Different seed from v2 and v3 for variety
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
     
-    # Generate two random droplets within the image bounds
+    # Advanced preprocessing pipeline
+    preprocessed = create_advanced_preprocessing(gray)
+    
+    # Multi-scale Hough detection with different parameter sets
+    all_circles = []
+    
+    # Scale 1: Standard parameters
+    circles1 = cv2.HoughCircles(
+        preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=80,
+        param1=50, param2=30, minRadius=min_radius, maxRadius=max_radius
+    )
+    
+    if circles1 is not None:
+        all_circles.extend(circles1[0])
+    
+    # Scale 2: More sensitive parameters
+    circles2 = cv2.HoughCircles(
+        preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=60,
+        param1=40, param2=25, minRadius=min_radius, maxRadius=max_radius
+    )
+    
+    if circles2 is not None:
+        all_circles.extend(circles2[0])
+    
+    # Scale 3: High sensitivity for faint circles
+    circles3 = cv2.HoughCircles(
+        preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=100,
+        param1=30, param2=20, minRadius=min_radius, maxRadius=max_radius
+    )
+    
+    if circles3 is not None:
+        all_circles.extend(circles3[0])
+    
+    # Convert to droplets format and apply confidence scoring
     droplets = []
-    for i in range(2):
-        # Random center position (with some margin from edges)
-        margin = 150
-        cx = np.random.randint(margin, width - margin)
-        cy = np.random.randint(margin, height - margin)
+    for i, circle in enumerate(all_circles):
+        x, y, r = circle
+        confidence = calculate_circle_confidence(preprocessed, int(x), int(y), int(r))
         
-        # Random radius within the specified range, biased toward larger circles
-        r = np.random.randint(min_radius, max_radius)
-        
-        droplets.append({
-            'cx': cx,
-            'cy': cy,
-            'r': r,
-            'id': i
-        })
+        if confidence > 0.3:  # Confidence threshold
+            droplets.append({
+                'cx': int(x),
+                'cy': int(y),
+                'r': int(r),
+                'id': i,
+                'confidence': confidence
+            })
     
-    logger.debug(f"V4 Detection: Generated {len(droplets)} placeholder droplets")
+    # Remove duplicates and select best circles
+    droplets = remove_duplicate_circles(droplets, min_dist=80)
+    droplets = select_best_circles_v4(droplets, max_circles=2)
+    
+    logger.debug(f"V4 Detection: Found {len(droplets)} droplets using enhanced multi-scale Hough")
     for i, droplet in enumerate(droplets):
-        logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
+        logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}, confidence={droplet.get('confidence', 'N/A')}")
     
     return droplets
+
+def create_advanced_preprocessing(gray):
+    """
+    Create advanced preprocessed image with multiple enhancement steps
+    """
+    # 1. Gaussian blur for noise reduction
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # 2. CLAHE for contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(blurred)
+    
+    # 3. Bilateral filtering to preserve edges
+    filtered = cv2.bilateralFilter(enhanced, 9, 75, 75)
+    
+    # 4. Morphological operations to enhance circular structures
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    morphed = cv2.morphologyEx(filtered, cv2.MORPH_CLOSE, kernel)
+    
+    # 5. Edge enhancement
+    edges = cv2.Canny(morphed, 50, 150)
+    enhanced_edges = cv2.addWeighted(morphed, 0.8, edges, 0.2, 0)
+    
+    return enhanced_edges
+
+def calculate_circle_confidence(gray, x, y, r):
+    """
+    Calculate confidence score for a detected circle
+    """
+    height, width = gray.shape
+    
+    # Check if circle is within image bounds
+    if x - r < 0 or x + r >= width or y - r < 0 or y + r >= height:
+        return 0.0
+    
+    # Create mask for the circle
+    mask = np.zeros((height, width), dtype=np.uint8)
+    cv2.circle(mask, (x, y), r, 255, -1)
+    
+    # Calculate edge strength along circle perimeter
+    circle_edges = cv2.Canny(gray, 50, 150)
+    edge_pixels = cv2.bitwise_and(circle_edges, mask)
+    edge_density = np.sum(edge_pixels > 0) / (2 * np.pi * r)
+    
+    # Calculate intensity consistency within circle
+    circle_region = cv2.bitwise_and(gray, mask)
+    mean_intensity = np.mean(circle_region[circle_region > 0])
+    intensity_std = np.std(circle_region[circle_region > 0])
+    intensity_consistency = 1.0 / (1.0 + intensity_std / (mean_intensity + 1))
+    
+    # Combine metrics
+    confidence = (edge_density * 0.6 + intensity_consistency * 0.4)
+    return min(confidence, 1.0)
+
+def remove_duplicate_circles(droplets, min_dist=80):
+    """
+    Remove duplicate circles that are too close to each other
+    """
+    if len(droplets) <= 1:
+        return droplets
+    
+    # Sort by confidence (if available) or radius
+    droplets.sort(key=lambda d: d.get('confidence', d['r']), reverse=True)
+    
+    filtered = []
+    for droplet in droplets:
+        is_duplicate = False
+        for existing in filtered:
+            dist = np.sqrt((droplet['cx'] - existing['cx'])**2 + (droplet['cy'] - existing['cy'])**2)
+            if dist < min_dist:
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            filtered.append(droplet)
+    
+    return filtered
+
+def select_best_circles_v4(droplets, max_circles=2):
+    """
+    Select the best circles based on confidence and other criteria
+    """
+    if len(droplets) <= max_circles:
+        return droplets
+    
+    # Sort by confidence and select top circles
+    droplets.sort(key=lambda d: d.get('confidence', d['r']), reverse=True)
+    return droplets[:max_circles]
 
 def create_simplified_preprocessing(gray):
     """
