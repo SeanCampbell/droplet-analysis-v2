@@ -1521,12 +1521,12 @@ def get_optimized_microscope_2_parameters():
     Get optimized parameters specifically for microscope_2 (frames 7-9)
     These will be iteratively improved based on performance on frames 7-9
     """
-    # V9 Iteration 2: Very aggressive parameters for high brightness/edge density frames
+    # V9 Iteration 5: Conservative parameters for high brightness/edge density frames
     parameter_sets = {
-        'microscope_2': {  # Optimized for frames 7-9 - very aggressive
-            'minDist': 140, 'param1': 100, 'param2': 80,
-            'fallback1': {'minDist': 120, 'param1': 80, 'param2': 60},
-            'fallback2': {'minDist': 100, 'param1': 60, 'param2': 45}
+        'microscope_2': {  # Optimized for frames 7-9 - conservative
+            'minDist': 80, 'param1': 30, 'param2': 30,
+            'fallback1': {'minDist': 60, 'param1': 25, 'param2': 25},
+            'fallback2': {'minDist': 40, 'param1': 20, 'param2': 20}
         }
     }
     
