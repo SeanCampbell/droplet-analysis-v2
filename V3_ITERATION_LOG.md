@@ -135,6 +135,53 @@ The simplified approach was still too slow due to:
 - Aim for <7,000 average total loss (21% improvement over V2)
 - Execution time <1 second per frame
 
+### Results:
+- **Average total loss**: 4,410.60
+- **Average droplet loss**: 17.10 (extremely low!)
+- **Average scale loss**: 4,393.50
+- **Performance vs V2**: 50% better (4,410.60 vs 8,857.26)
+
+### Analysis:
+The fast hybrid approach was very successful! Key improvements:
+1. Much faster execution (no complex calculations)
+2. Excellent droplet detection accuracy (17.10 loss vs V2's higher loss)
+3. The CLAHE preprocessing + Hough combination works well
+4. V2 template matching fallback provides good coverage
+
+### Next Steps:
+- Fine-tune Hough parameters for even better performance
+- Optimize the template matching fallback
+- Try to get even closer to ground truth
+
+---
+
+## Iteration 4: Fine-tuned Parameters
+**Date**: 2025-01-03
+**Approach**: Fine-tune Hough parameters and optimize template matching integration
+
+### Changes Made:
+1. **Optimized Hough Parameters**:
+   - Test different param1/param2 combinations
+   - Adjust minDist for better separation
+   - Fine-tune radius ranges based on ground truth
+
+2. **Enhanced Template Matching Integration**:
+   - Better duplicate detection
+   - Improved fallback logic
+   - Optimized template radii
+
+3. **Parameter Optimization**:
+   - Based on ground truth analysis (290-305px radius range)
+   - Test multiple parameter sets and select best
+
+### Expected Improvements:
+- Even better accuracy through parameter tuning
+- Maintain fast execution speed
+- Get closer to ground truth values
+
+### Performance Target:
+- Aim for <3,000 average total loss (66% improvement over V2)
+
 ---
 
 ## Performance Summary

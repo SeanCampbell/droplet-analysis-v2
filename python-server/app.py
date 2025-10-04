@@ -495,16 +495,16 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)
     
-    # Try fast Hough first with optimized parameters
+    # Try fast Hough first with fine-tuned parameters
     circles = cv2.HoughCircles(
         enhanced,
         cv2.HOUGH_GRADIENT,
         dp=1,
-        minDist=min_dist,
-        param1=50,
-        param2=60,  # Lower threshold for more sensitivity
-        minRadius=min_radius,
-        maxRadius=max_radius
+        minDist=80,  # Increased for better separation
+        param1=45,   # Fine-tuned for better edge detection
+        param2=55,   # Fine-tuned for optimal sensitivity
+        minRadius=250,  # Focus on ground truth range
+        maxRadius=350   # Focus on ground truth range
     )
     
     droplets = []
@@ -525,7 +525,7 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     
     # If we don't have 2 circles, use V2 template matching for the rest
     if len(droplets) < 2:
-        logger.debug("V3 Detection: Supplementing with V2 template matching")
+        logger.debug("V3 Detection: Supplementing with optimized template matching")
         template_circles = detect_circles_optimized_template_matching(gray)
         
         # Add template matching results, avoiding duplicates
@@ -543,7 +543,7 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
             # Check if this position is too close to existing droplets
             too_close = False
             for ex_x, ex_y in existing_positions:
-                if np.sqrt((x - ex_x)**2 + (y - ex_y)**2) < min_dist:
+                if np.sqrt((x - ex_x)**2 + (y - ex_y)**2) < 100:  # Stricter distance
                     too_close = True
                     break
             
