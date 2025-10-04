@@ -22,7 +22,7 @@ const App: React.FC = () => {
   const [imageDimensions, setImageDimensions] = useState({ width: 1280, height: 720 });
   const [frameInterval, setFrameInterval] = useState(120);
   const [detectionAlgorithm, setDetectionAlgorithm] = useState<DetectionAlgorithm>('hough');
-  const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2' | 'v3'>('v1');
+  const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2' | 'v3'>('v3');
   const [view, setView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
