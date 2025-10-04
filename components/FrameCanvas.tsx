@@ -26,6 +26,11 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [isSpacebarDown, setIsSpacebarDown] = useState(false);
+  const [editingTimestamp, setEditingTimestamp] = useState(false);
+  const [editingScale, setEditingScale] = useState(false);
+  const [tempTimestamp, setTempTimestamp] = useState('');
+  const [tempScaleValue, setTempScaleValue] = useState('');
+  const [tempScaleUnit, setTempScaleUnit] = useState('');
 
   const getMousePos = useCallback((e: React.MouseEvent | React.WheelEvent) => {
     const canvas = canvasRef.current;
@@ -276,18 +281,187 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
       return 'crosshair';
   }
 
+  const handleTimestampEdit = () => {
+    if (!analysis) return;
+    setTempTimestamp(analysis.timestamp);
+    setEditingTimestamp(true);
+  };
+
+  const handleTimestampSave = () => {
+    if (!analysis) return;
+    onAnalysisChange({
+      ...analysis,
+      timestamp: tempTimestamp
+    });
+    setEditingTimestamp(false);
+  };
+
+  const handleTimestampCancel = () => {
+    setEditingTimestamp(false);
+    setTempTimestamp('');
+  };
+
+  const handleScaleEdit = () => {
+    if (!analysis) return;
+    // Parse the scale label to extract value and unit
+    const scaleLabel = analysis.scale.label;
+    const match = scaleLabel.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+    if (match) {
+      setTempScaleValue(match[1]);
+      setTempScaleUnit(match[2] || 'µm');
+    } else {
+      setTempScaleValue('50');
+      setTempScaleUnit('µm');
+    }
+    setEditingScale(true);
+  };
+
+  const handleScaleSave = () => {
+    if (!analysis) return;
+    const newLabel = `${tempScaleValue} ${tempScaleUnit}`;
+    onAnalysisChange({
+      ...analysis,
+      scale: {
+        ...analysis.scale,
+        label: newLabel
+      }
+    });
+    setEditingScale(false);
+  };
+
+  const handleScaleCancel = () => {
+    setEditingScale(false);
+    setTempScaleValue('');
+    setTempScaleUnit('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      if (editingTimestamp) {
+        handleTimestampSave();
+      } else if (editingScale) {
+        handleScaleSave();
+      }
+    } else if (e.key === 'Escape') {
+      if (editingTimestamp) {
+        handleTimestampCancel();
+      } else if (editingScale) {
+        handleScaleCancel();
+      }
+    }
+  };
+
   return (
-    <canvas
-      ref={canvasRef}
-      width={imageDimensions.width}
-      height={imageDimensions.height}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
-      className="w-full h-auto rounded-lg shadow-md bg-white"
-      style={{ cursor: getCursor() }}
-    />
+    <div className="relative">
+      <canvas
+        ref={canvasRef}
+        width={imageDimensions.width}
+        height={imageDimensions.height}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        className="w-full h-auto rounded-lg shadow-md bg-white"
+        style={{ cursor: getCursor() }}
+      />
+      
+      {/* Editing Controls Overlay */}
+      {analysis && (
+        <div className="absolute top-4 left-4 bg-white bg-opacity-90 rounded-lg shadow-lg p-3 space-y-2">
+          {/* Timestamp Editing */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium text-gray-700">Timestamp (seconds):</span>
+            {editingTimestamp ? (
+              <div className="flex items-center space-x-1">
+                <input
+                  type="text"
+                  value={tempTimestamp}
+                  onChange={(e) => setTempTimestamp(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="e.g., 0.5"
+                  className="text-sm border border-gray-300 rounded px-2 py-1 w-32"
+                  autoFocus
+                />
+                <button
+                  onClick={handleTimestampSave}
+                  className="text-green-600 hover:text-green-800 text-sm"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={handleTimestampCancel}
+                  className="text-red-600 hover:text-red-800 text-sm"
+                >
+                  ✗
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-1">
+                <span className="text-sm text-gray-900">{analysis.timestamp}</span>
+                <button
+                  onClick={handleTimestampEdit}
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  ✏️
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Scale Editing */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium text-gray-700">Scale:</span>
+            {editingScale ? (
+              <div className="flex items-center space-x-1">
+                <input
+                  type="number"
+                  value={tempScaleValue}
+                  onChange={(e) => setTempScaleValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="text-sm border border-gray-300 rounded px-2 py-1 w-16"
+                  step="0.1"
+                  autoFocus
+                />
+                <select
+                  value={tempScaleUnit}
+                  onChange={(e) => setTempScaleUnit(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="text-sm border border-gray-300 rounded px-2 py-1"
+                >
+                  <option value="µm">µm</option>
+                  <option value="mm">mm</option>
+                  <option value="cm">cm</option>
+                  <option value="m">m</option>
+                  <option value="nm">nm</option>
+                </select>
+                <button
+                  onClick={handleScaleSave}
+                  className="text-green-600 hover:text-green-800 text-sm"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={handleScaleCancel}
+                  className="text-red-600 hover:text-red-800 text-sm"
+                >
+                  ✗
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-1">
+                <span className="text-sm text-gray-900">{analysis.scale.label}</span>
+                <button
+                  onClick={handleScaleEdit}
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  ✏️
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };

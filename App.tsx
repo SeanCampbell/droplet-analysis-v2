@@ -614,7 +614,6 @@ const App: React.FC = () => {
                 }`}>
                   {currentAnalysis.dropletsFound === false && <p className="text-amber-300">⚠️ Droplets defaulted</p>}
                   {currentAnalysis.scaleFound === false && <p className="text-amber-300">⚠️ Scale defaulted</p>}
-                  {currentAnalysis.timestampFound === false && <p className="text-amber-300">⚠️ Timestamp not found</p>}
                 </div>
               )}
               <FrameCanvas 
