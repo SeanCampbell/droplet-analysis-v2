@@ -1456,8 +1456,8 @@ def detect_with_optimized_microscope_2(gray, min_radius, max_radius):
         minDist=params['minDist'],
         param1=params['param1'],
         param2=params['param2'],
-        minRadius=250,  # V3's radius range
-        maxRadius=350
+        minRadius=200,  # Different radius range for microscope_2
+        maxRadius=400
     )
     
     droplets = []
@@ -1521,12 +1521,12 @@ def get_optimized_microscope_2_parameters():
     Get optimized parameters specifically for microscope_2 (frames 7-9)
     These will be iteratively improved based on performance on frames 7-9
     """
-    # V9 Iteration 5: Conservative parameters for high brightness/edge density frames
+    # V9 Iteration 6: V3's exact parameters but with different radius range
     parameter_sets = {
-        'microscope_2': {  # Optimized for frames 7-9 - conservative
-            'minDist': 80, 'param1': 30, 'param2': 30,
-            'fallback1': {'minDist': 60, 'param1': 25, 'param2': 25},
-            'fallback2': {'minDist': 40, 'param1': 20, 'param2': 20}
+        'microscope_2': {  # V3's exact parameters for microscope_2
+            'minDist': 80, 'param1': 45, 'param2': 55,
+            'fallback1': {'minDist': 60, 'param1': 35, 'param2': 45},
+            'fallback2': {'minDist': 40, 'param1': 25, 'param2': 35}
         }
     }
     
