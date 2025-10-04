@@ -77,7 +77,7 @@ def get_optimized_microscope_2_parameters():
 
 | Iteration | Average Total Loss | vs V2 | vs V3 | vs V4 | vs V5 | vs V6 | vs V7 | vs V8 | Notes |
 |-----------|-------------------|-------|-------|-------|-------|-------|-------|-------|-------|
-| Baseline | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | V7 microscope_c parameters |
+| Baseline | 19,406.88 | 91% better | 93% better | 30% better | 3% better | 1% better | 6% better | 1.1% better | V7 microscope_c parameters |
 | Iteration 1 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 
 ## Key Learnings from V8 Development
