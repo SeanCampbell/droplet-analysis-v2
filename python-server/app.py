@@ -1199,9 +1199,13 @@ def detect_circles_v8(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     microscope_type = classify_microscope(gray)
     logger.debug(f"V8 Detection: Classified microscope as: {microscope_type}")
     
-    # 2. Always use V3's hybrid approach with microscope-specific parameters
-    # This iteration tests if V3's hybrid approach can be improved for all microscopes
-    droplets = detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius)
+    # 2. Select approach based on microscope type with improved V3 parameters
+    if microscope_type in ['microscope_a']:  # Only use V3 for highest quality microscopes
+        # Use V3's hybrid approach with microscope-specific parameters
+        droplets = detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius)
+    else:  # Use V7's approach for others
+        # Use V7's adaptive approach
+        droplets = detect_with_v7_adaptive(gray, microscope_type, min_radius, max_radius)
     
     logger.debug(f"V8 Detection: Found {len(droplets)} droplets using V3 hybrid approach")
     for i, droplet in enumerate(droplets):
@@ -1309,8 +1313,8 @@ def get_v3_parameters_for_microscope(microscope_type):
     Get V3-style parameters optimized for the specific microscope type
     """
     parameter_sets = {
-        'microscope_a': {  # High quality - can use V3's aggressive parameters
-            'minDist': 80, 'param1': 45, 'param2': 55
+        'microscope_a': {  # High quality - very aggressive V3 parameters
+            'minDist': 75, 'param1': 40, 'param2': 50
         },
         'microscope_b': {  # Medium quality - slightly adjusted V3 parameters
             'minDist': 85, 'param1': 50, 'param2': 60
