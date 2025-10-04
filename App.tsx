@@ -1073,16 +1073,16 @@ const App: React.FC = () => {
                   disabled={status === 'extracting' || status === 'analyzing'}
                   className="w-full p-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value={0.1}>0.1 seconds (10 FPS)</option>
-                  <option value={0.2}>0.2 seconds (5 FPS)</option>
-                  <option value={0.5}>0.5 seconds (2 FPS)</option>
-                  <option value={1}>1 second (1 FPS)</option>
-                  <option value={2}>2 seconds (0.5 FPS)</option>
-                  <option value={5}>5 seconds (0.2 FPS)</option>
-                  <option value={10}>10 seconds (0.1 FPS)</option>
-                  <option value={30}>30 seconds (0.03 FPS)</option>
-                  <option value={60}>60 seconds (0.017 FPS)</option>
-                  <option value={120}>120 seconds (0.0083 FPS)</option>
+                  <option value={0.1}>0.1 seconds</option>
+                  <option value={0.2}>0.2 seconds</option>
+                  <option value={0.5}>0.5 seconds</option>
+                  <option value={1}>1 second</option>
+                  <option value={2}>2 seconds</option>
+                  <option value={5}>5 seconds</option>
+                  <option value={10}>10 seconds</option>
+                  <option value={30}>30 seconds</option>
+                  <option value={60}>60 seconds</option>
+                  <option value={120}>120 seconds</option>
                 </select>
               </div>
 
