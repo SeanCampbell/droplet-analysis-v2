@@ -500,11 +500,11 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     # Parameter sets optimized for different circle characteristics
     hough_params = [
         # High sensitivity for faint circles
-        {'dp': 1, 'min_dist': min_dist, 'param1': 30, 'param2': 40, 'min_radius': min_radius, 'max_radius': max_radius},
+        {'dp': 1, 'minDist': min_dist, 'param1': 30, 'param2': 40, 'minRadius': min_radius, 'maxRadius': max_radius},
         # Standard parameters
-        {'dp': 1, 'min_dist': min_dist, 'param1': 50, 'param2': 60, 'min_radius': min_radius, 'max_radius': max_radius},
+        {'dp': 1, 'minDist': min_dist, 'param1': 50, 'param2': 60, 'minRadius': min_radius, 'maxRadius': max_radius},
         # High precision for well-defined circles
-        {'dp': 1, 'min_dist': min_dist, 'param1': 80, 'param2': 90, 'min_radius': min_radius, 'max_radius': max_radius},
+        {'dp': 1, 'minDist': min_dist, 'param1': 80, 'param2': 90, 'minRadius': min_radius, 'maxRadius': max_radius},
     ]
     
     # Test each preprocessed image with each parameter set
