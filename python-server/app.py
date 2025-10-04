@@ -1036,20 +1036,20 @@ def get_parameters_for_microscope(microscope_type):
     Get optimized parameters for the specific microscope type
     """
     parameter_sets = {
-        'microscope_a': {  # High quality - conservative but effective parameters
-            'minDist': 127, 'param1': 87, 'param2': 67,
-            'fallback1': {'minDist': 107, 'param1': 72, 'param2': 52},
-            'fallback2': {'minDist': 87, 'param1': 57, 'param2': 42}
+        'microscope_a': {  # High quality - optimized parameters (from Iteration 2)
+            'minDist': 125, 'param1': 85, 'param2': 65,
+            'fallback1': {'minDist': 105, 'param1': 70, 'param2': 50},
+            'fallback2': {'minDist': 85, 'param1': 55, 'param2': 40}
         },
-        'microscope_b': {  # Medium quality - conservative but effective parameters
-            'minDist': 117, 'param1': 77, 'param2': 57,
-            'fallback1': {'minDist': 97, 'param1': 62, 'param2': 47},
-            'fallback2': {'minDist': 77, 'param1': 47, 'param2': 37}
+        'microscope_b': {  # Medium quality - optimized parameters (from Iteration 2)
+            'minDist': 115, 'param1': 75, 'param2': 55,
+            'fallback1': {'minDist': 95, 'param1': 60, 'param2': 45},
+            'fallback2': {'minDist': 75, 'param1': 45, 'param2': 35}
         },
-        'microscope_c': {  # Lower quality - conservative but effective parameters
-            'minDist': 107, 'param1': 67, 'param2': 52,
-            'fallback1': {'minDist': 87, 'param1': 52, 'param2': 42},
-            'fallback2': {'minDist': 67, 'param1': 42, 'param2': 32}
+        'microscope_c': {  # Lower quality - optimized parameters (from Iteration 2)
+            'minDist': 105, 'param1': 65, 'param2': 50,
+            'fallback1': {'minDist': 85, 'param1': 50, 'param2': 40},
+            'fallback2': {'minDist': 65, 'param1': 40, 'param2': 30}
         }
     }
     

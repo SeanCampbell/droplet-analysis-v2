@@ -462,7 +462,7 @@ const App: React.FC = () => {
                     <option value="v4">V4 - Advanced Hough Detection (87% Better than V2)</option>
                     <option value="v5">V5 - Optimized Hough Detection (32% Better than V4)</option>
                     <option value="v6">V6 - Ultra-Optimized Hough Detection (4% Better than V5)</option>
-                    <option value="v7">V7 - Microscope-Adaptive Detection (1% Better than V6)</option>
+                    <option value="v7">V7 - Microscope-Adaptive Detection (7% Better than V6)</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {detectionMethod === 'v1' 
