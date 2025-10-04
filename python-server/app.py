@@ -584,9 +584,9 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 def detect_circles_v4(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
-    V4 Detection Algorithm - Enhanced Multi-Scale Hough with Advanced Preprocessing
+    V4 Detection Algorithm - Simplified Hough with Optimized Parameters
     
-    This algorithm uses advanced preprocessing and multi-scale Hough detection
+    This algorithm uses simplified preprocessing and optimized Hough parameters
     to improve accuracy over previous versions.
     
     Args:
@@ -603,7 +603,7 @@ def detect_circles_v4(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     """
     height, width = image.shape[:2]
     
-    logger.debug(f"V4 Detection: Starting enhanced multi-scale Hough on {width}x{height} image")
+    logger.debug(f"V4 Detection: Starting simplified Hough with optimized parameters on {width}x{height} image")
     
     # Convert to grayscale if needed
     if len(image.shape) == 3:
@@ -611,61 +611,88 @@ def detect_circles_v4(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     else:
         gray = image.copy()
     
-    # Advanced preprocessing pipeline
-    preprocessed = create_advanced_preprocessing(gray)
+    # Simple preprocessing - just CLAHE for contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    preprocessed = clahe.apply(gray)
     
-    # Multi-scale Hough detection with different parameter sets
-    all_circles = []
-    
-    # Scale 1: Standard parameters
-    circles1 = cv2.HoughCircles(
-        preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=80,
-        param1=50, param2=30, minRadius=min_radius, maxRadius=max_radius
-    )
-    
-    if circles1 is not None:
-        all_circles.extend(circles1[0])
-    
-    # Scale 2: More sensitive parameters
-    circles2 = cv2.HoughCircles(
-        preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=60,
-        param1=40, param2=25, minRadius=min_radius, maxRadius=max_radius
-    )
-    
-    if circles2 is not None:
-        all_circles.extend(circles2[0])
-    
-    # Scale 3: High sensitivity for faint circles
-    circles3 = cv2.HoughCircles(
+    # Single optimized Hough detection
+    circles = cv2.HoughCircles(
         preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=100,
-        param1=30, param2=20, minRadius=min_radius, maxRadius=max_radius
+        param1=60, param2=40, minRadius=min_radius, maxRadius=max_radius
     )
     
-    if circles3 is not None:
-        all_circles.extend(circles3[0])
-    
-    # Convert to droplets format and apply confidence scoring
     droplets = []
-    for i, circle in enumerate(all_circles):
-        x, y, r = circle
-        confidence = calculate_circle_confidence(preprocessed, int(x), int(y), int(r))
+    if circles is not None:
+        circles = np.round(circles[0, :]).astype("int")
         
-        if confidence > 0.3:  # Confidence threshold
+        for i, (x, y, r) in enumerate(circles):
             droplets.append({
-                'cx': int(x),
-                'cy': int(y),
-                'r': int(r),
-                'id': i,
-                'confidence': confidence
+                'cx': x,
+                'cy': y,
+                'r': r,
+                'id': i
             })
     
-    # Remove duplicates and select best circles
-    droplets = remove_duplicate_circles(droplets, min_dist=80)
-    droplets = select_best_circles_v4(droplets, max_circles=2)
+    # If we found fewer than 2 circles, try with more sensitive parameters
+    if len(droplets) < 2:
+        circles_sensitive = cv2.HoughCircles(
+            preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=80,
+            param1=40, param2=25, minRadius=min_radius, maxRadius=max_radius
+        )
+        
+        if circles_sensitive is not None:
+            circles_sensitive = np.round(circles_sensitive[0, :]).astype("int")
+            
+            for i, (x, y, r) in enumerate(circles_sensitive):
+                # Check if this circle is too close to existing ones
+                too_close = False
+                for existing in droplets:
+                    dist = np.sqrt((x - existing['cx'])**2 + (y - existing['cy'])**2)
+                    if dist < 100:
+                        too_close = True
+                        break
+                
+                if not too_close:
+                    droplets.append({
+                        'cx': x,
+                        'cy': y,
+                        'r': r,
+                        'id': len(droplets)
+                    })
     
-    logger.debug(f"V4 Detection: Found {len(droplets)} droplets using enhanced multi-scale Hough")
+    # If still fewer than 2, try with very sensitive parameters
+    if len(droplets) < 2:
+        circles_very_sensitive = cv2.HoughCircles(
+            preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=60,
+            param1=30, param2=20, minRadius=min_radius, maxRadius=max_radius
+        )
+        
+        if circles_very_sensitive is not None:
+            circles_very_sensitive = np.round(circles_very_sensitive[0, :]).astype("int")
+            
+            for i, (x, y, r) in enumerate(circles_very_sensitive):
+                # Check if this circle is too close to existing ones
+                too_close = False
+                for existing in droplets:
+                    dist = np.sqrt((x - existing['cx'])**2 + (y - existing['cy'])**2)
+                    if dist < 100:
+                        too_close = True
+                        break
+                
+                if not too_close:
+                    droplets.append({
+                        'cx': x,
+                        'cy': y,
+                        'r': r,
+                        'id': len(droplets)
+                    })
+    
+    # Limit to 2 droplets maximum
+    droplets = droplets[:2]
+    
+    logger.debug(f"V4 Detection: Found {len(droplets)} droplets using simplified Hough")
     for i, droplet in enumerate(droplets):
-        logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}, confidence={droplet.get('confidence', 'N/A')}")
+        logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
     return droplets
 

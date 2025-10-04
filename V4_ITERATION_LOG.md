@@ -193,13 +193,16 @@ def select_best_circles_v4(droplets, max_circles=2):
 ```
 
 ### Performance Impact:
-- **Expected**: Should perform better than V3 but may still be worse than V2 with new data
-- **Target**: Aim for < 250,000 average total loss
+- **Actual**: 1,137,032.42 average total loss (much worse than expected!)
+- **vs V2**: 430% worse (214,734.15 → 1,137,032.42)
+- **vs V3**: 315% worse (273,717.93 → 1,137,032.42)
+- **vs Baseline**: 128% worse (497,789.74 → 1,137,032.42)
 
 ### Analysis:
-- **Strengths**: Advanced preprocessing should help with challenging images
-- **Weaknesses**: May be slower due to multiple Hough passes and complex preprocessing
-- **Next Steps**: Evaluate performance and potentially simplify if too slow
+- **Problem**: The advanced preprocessing and multi-scale approach is over-complicating the detection
+- **Root Cause**: Complex preprocessing may be introducing artifacts or making circles harder to detect
+- **Confidence Scoring**: The confidence threshold (0.3) may be too strict, filtering out valid circles
+- **Next Steps**: Simplify the approach significantly - go back to basics with better parameter tuning
 
 ---
 
