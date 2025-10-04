@@ -991,6 +991,25 @@ def classify_microscope(gray):
     else:  # Microscope 2 - higher brightness
         return 'microscope_2'
 
+def should_use_v3(gray):
+    """
+    Determine if V3 should be used based on image characteristics
+    V3 works excellently on frames with very low brightness and edge density
+    """
+    features = extract_image_features(gray)
+    
+    # V3 works excellently on frames with:
+    # - Very low brightness (< 0.58)
+    # - Very low edge density (< 0.002)
+    # - Low contrast (0.14-0.16)
+    
+    if (features['brightness'] < 0.58 and 
+        features['edge_density'] < 0.002 and
+        features['contrast'] > 0.14 and features['contrast'] < 0.16):
+        return True
+    else:
+        return False
+
 def extract_image_features(gray):
     """
     Extract enhanced features from the image to classify microscope type
@@ -1193,13 +1212,13 @@ def detect_circles_v8(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     microscope_type = classify_microscope(gray)
     logger.debug(f"V8 Detection: Classified microscope as: {microscope_type}")
     
-    # 2. Select approach based on actual microscope classification
-    if microscope_type == 'microscope_1':  # V3 works well on some frames (0,2,3,10)
-        # Use V3's hybrid approach with V3's exact parameters
-        droplets = detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius)
-    else:  # microscope_2 - V3 struggles on all frames
-        # Use V7's adaptive approach
-        droplets = detect_with_v7_adaptive(gray, microscope_type, min_radius, max_radius)
+    # 2. Select approach based on V3 performance characteristics
+    if should_use_v3(gray):  # V3 works excellently on these specific frames
+        # Use V3's exact approach directly
+        droplets = detect_circles_v3(image, min_radius, max_radius, dp, min_dist, param1, param2)
+    else:  # Use V7 for all other frames
+        # Use V7's exact approach directly
+        droplets = detect_circles_v7(image, min_radius, max_radius, dp, min_dist, param1, param2)
     
     logger.debug(f"V8 Detection: Found {len(droplets)} droplets using V3 hybrid approach")
     for i, droplet in enumerate(droplets):
@@ -1219,6 +1238,7 @@ def detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius):
     enhanced = clahe.apply(gray)
     
     # Try fast Hough first with microscope-specific parameters
+    # Use V3's exact radius parameters for consistency
     circles = cv2.HoughCircles(
         enhanced,
         cv2.HOUGH_GRADIENT,
@@ -1226,8 +1246,8 @@ def detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius):
         minDist=params['minDist'],
         param1=params['param1'],
         param2=params['param2'],
-        minRadius=min_radius,
-        maxRadius=max_radius
+        minRadius=250,  # V3's exact parameters
+        maxRadius=350   # V3's exact parameters
     )
     
     droplets = []
