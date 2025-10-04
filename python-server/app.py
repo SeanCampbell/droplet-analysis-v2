@@ -698,55 +698,125 @@ def detect_circles_v4(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 def detect_circles_v5(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
-    V5 Detection Algorithm - Placeholder for Future Development
+    V5 Detection Algorithm - Hybrid Template Matching + Advanced Hough
     
-    This is a placeholder algorithm for future development and testing.
-    Currently returns random values but can be replaced with more sophisticated
-    detection methods.
+    This algorithm combines the best of V2 (template matching) and V4 (advanced Hough)
+    to create a hybrid approach that leverages both methods' strengths.
     
     Args:
         image: OpenCV image
         min_radius: Minimum circle radius
         max_radius: Maximum circle radius
-        dp: Inverse ratio of accumulator resolution (unused in v5)
-        min_dist: Minimum distance between circle centers (unused in v5)
-        param1: Upper threshold for edge detection (unused in v5)
-        param2: Accumulator threshold for center detection (unused in v5)
+        dp: Inverse ratio of accumulator resolution
+        min_dist: Minimum distance between circle centers
+        param1: Upper threshold for edge detection
+        param2: Accumulator threshold for center detection
     
     Returns:
         List of detected circles with format [cx, cy, r]
     """
     height, width = image.shape[:2]
     
-    logger.debug(f"V5 Detection: Starting placeholder algorithm on {width}x{height} image")
+    logger.debug(f"V5 Detection: Starting hybrid template matching + advanced Hough on {width}x{height} image")
     
-    # Placeholder implementation - returns random values for testing
-    # This will be replaced with a more sophisticated algorithm in the future
-    np.random.seed(789)  # Different seed from v2, v3, and v4 for variety
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
     
-    # Generate two random droplets within the image bounds
-    droplets = []
-    for i in range(2):
-        # Random center position (with some margin from edges)
-        margin = 150
-        cx = np.random.randint(margin, width - margin)
-        cy = np.random.randint(margin, height - margin)
+    # Step 1: Get V4's advanced Hough results
+    v4_droplets = detect_circles_v4(image, min_radius, max_radius, dp, min_dist, param1, param2)
+    
+    # Step 2: Get V2's template matching results
+    v2_droplets = detect_circles_v2(image, min_radius, max_radius, dp, min_dist, param1, param2)
+    
+    # Step 3: Combine and deduplicate results
+    all_droplets = []
+    
+    # Add V4 results first (they're generally more accurate)
+    for droplet in v4_droplets:
+        all_droplets.append({
+            'cx': droplet['cx'],
+            'cy': droplet['cy'],
+            'r': droplet['r'],
+            'id': len(all_droplets),
+            'source': 'v4'
+        })
+    
+    # Add V2 results if they don't conflict with existing ones
+    for droplet in v2_droplets:
+        # Check if this droplet is too close to any existing one
+        too_close = False
+        for existing in all_droplets:
+            dist = np.sqrt((droplet['cx'] - existing['cx'])**2 + (droplet['cy'] - existing['cy'])**2)
+            if dist < 120:  # Minimum distance threshold
+                too_close = True
+                break
         
-        # Random radius within the specified range, biased toward larger circles
-        r = np.random.randint(min_radius, max_radius)
+        if not too_close:
+            all_droplets.append({
+                'cx': droplet['cx'],
+                'cy': droplet['cy'],
+                'r': droplet['r'],
+                'id': len(all_droplets),
+                'source': 'v2'
+            })
+    
+    # Step 4: If we still don't have 2 droplets, try to find more using enhanced detection
+    if len(all_droplets) < 2:
+        # Use enhanced Hough with more sensitive parameters
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        preprocessed = clahe.apply(gray)
         
-        droplets.append({
-            'cx': cx,
-            'cy': cy,
-            'r': r,
+        # Try very sensitive Hough parameters
+        circles_enhanced = cv2.HoughCircles(
+            preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=50,
+            param1=25, param2=15, minRadius=min_radius, maxRadius=max_radius
+        )
+        
+        if circles_enhanced is not None:
+            circles_enhanced = np.round(circles_enhanced[0, :]).astype("int")
+            
+            for i, (x, y, r) in enumerate(circles_enhanced):
+                # Check if this circle is too close to existing ones
+                too_close = False
+                for existing in all_droplets:
+                    dist = np.sqrt((x - existing['cx'])**2 + (y - existing['cy'])**2)
+                    if dist < 120:
+                        too_close = True
+                        break
+                
+                if not too_close:
+                    all_droplets.append({
+                        'cx': x,
+                        'cy': y,
+                        'r': r,
+                        'id': len(all_droplets),
+                        'source': 'enhanced'
+                    })
+    
+    # Step 5: Limit to 2 droplets maximum and select the best ones
+    if len(all_droplets) > 2:
+        # Sort by radius (prefer larger circles) and take top 2
+        all_droplets.sort(key=lambda d: d['r'], reverse=True)
+        all_droplets = all_droplets[:2]
+    
+    # Remove source information for final output
+    final_droplets = []
+    for i, droplet in enumerate(all_droplets):
+        final_droplets.append({
+            'cx': droplet['cx'],
+            'cy': droplet['cy'],
+            'r': droplet['r'],
             'id': i
         })
     
-    logger.debug(f"V5 Detection: Generated {len(droplets)} placeholder droplets")
-    for i, droplet in enumerate(droplets):
+    logger.debug(f"V5 Detection: Found {len(final_droplets)} droplets using hybrid approach")
+    for i, droplet in enumerate(final_droplets):
         logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
-    return droplets
+    return final_droplets
 
 def create_advanced_preprocessing(gray):
     """

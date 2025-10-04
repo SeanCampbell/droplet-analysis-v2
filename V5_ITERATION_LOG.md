@@ -66,7 +66,7 @@ def detect_circles_v5(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 | Iteration | Average Total Loss | vs V2 | vs V3 | vs V4 | Notes |
 |-----------|-------------------|-------|-------|-------|-------|
 | Baseline (Placeholder) | 519,980.57 | 142% worse | 90% worse | 1,783% worse | Random values |
-| Iteration 1 | TBD | TBD | TBD | TBD | TBD |
+| Iteration 1 | 92,242.47 | 57% worse | 66% worse | 234% worse | Hybrid Template + Hough |
 
 ## Key Learnings from V4 Development
 
