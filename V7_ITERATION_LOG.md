@@ -70,6 +70,7 @@ def detect_circles_v7(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 | Baseline (Placeholder) | 302,127.45 | 41% worse | 10% worse | 994% worse | 1,505% worse | 1,448% worse | Random values |
 | Iteration 1 | 19,703.08 | 91% better | 93% better | 29% better | 5% better | 1% better | Microscope-Adaptive Hough |
 | Iteration 2 | 18,241.47 | 92% better | 93% better | 34% better | 3% better | 7% better | Enhanced Classification & Parameters |
+| Iteration 3 | 771,399.07 | 259% worse | 182% worse | 2,693% worse | 3,999% worse | 3,853% worse | Over-Aggressive Parameters & Complex Preprocessing |
 
 ## Key Learnings from V6 Development
 

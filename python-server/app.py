@@ -961,8 +961,9 @@ def detect_circles_v7(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     params = get_parameters_for_microscope(microscope_type)
     logger.debug(f"V7 Detection: Using parameters: {params}")
     
-    # 3. Advanced preprocessing based on microscope type
-    preprocessed = apply_adaptive_preprocessing(gray, microscope_type)
+    # 3. Simple preprocessing - just CLAHE for contrast enhancement (like V6)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    preprocessed = clahe.apply(gray)
     
     # 4. Apply microscope-specific detection with progressive sensitivity
     droplets = detect_with_parameters(preprocessed, params, min_radius, max_radius)
@@ -1035,20 +1036,20 @@ def get_parameters_for_microscope(microscope_type):
     Get optimized parameters for the specific microscope type
     """
     parameter_sets = {
-        'microscope_a': {  # High quality - ultra-aggressive parameters
-            'minDist': 130, 'param1': 90, 'param2': 70,
-            'fallback1': {'minDist': 110, 'param1': 75, 'param2': 55},
-            'fallback2': {'minDist': 90, 'param1': 60, 'param2': 45}
+        'microscope_a': {  # High quality - fine-tuned parameters
+            'minDist': 128, 'param1': 88, 'param2': 68,
+            'fallback1': {'minDist': 108, 'param1': 73, 'param2': 53},
+            'fallback2': {'minDist': 88, 'param1': 58, 'param2': 43}
         },
-        'microscope_b': {  # Medium quality - optimized parameters
-            'minDist': 120, 'param1': 80, 'param2': 60,
-            'fallback1': {'minDist': 100, 'param1': 65, 'param2': 50},
-            'fallback2': {'minDist': 80, 'param1': 50, 'param2': 40}
+        'microscope_b': {  # Medium quality - fine-tuned parameters
+            'minDist': 118, 'param1': 78, 'param2': 58,
+            'fallback1': {'minDist': 98, 'param1': 63, 'param2': 48},
+            'fallback2': {'minDist': 78, 'param1': 48, 'param2': 38}
         },
-        'microscope_c': {  # Lower quality - conservative but effective parameters
-            'minDist': 110, 'param1': 70, 'param2': 55,
-            'fallback1': {'minDist': 90, 'param1': 55, 'param2': 45},
-            'fallback2': {'minDist': 70, 'param1': 45, 'param2': 35}
+        'microscope_c': {  # Lower quality - fine-tuned parameters
+            'minDist': 108, 'param1': 68, 'param2': 53,
+            'fallback1': {'minDist': 88, 'param1': 53, 'param2': 43},
+            'fallback2': {'minDist': 68, 'param1': 43, 'param2': 33}
         }
     }
     
