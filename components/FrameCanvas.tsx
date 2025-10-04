@@ -25,7 +25,6 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
   const [draggingObject, setDraggingObject] = useState<DraggableObject | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [isSpacebarDown, setIsSpacebarDown] = useState(false);
   const [editingTimestamp, setEditingTimestamp] = useState(false);
   const [editingScale, setEditingScale] = useState(false);
   const [tempTimestamp, setTempTimestamp] = useState('');
@@ -135,43 +134,10 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
     draw();
   }, [draw]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ') {
-        e.preventDefault();
-        setIsSpacebarDown(true);
-      }
-    };
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === ' ') {
-        setIsSpacebarDown(false);
-        setIsPanning(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!analysis) return;
     
-    if (isSpacebarDown && e.button === 0) {
-        e.preventDefault();
-        setIsPanning(true);
-        const { canvasX, canvasY } = getMousePos(e);
-        setPanStart({
-            x: canvasX - view.pan.x,
-            y: canvasY - view.pan.y,
-        });
-        return;
-    }
-
     const { imageX, imageY } = getMousePos(e);
     const scaledHandleRadius = HANDLE_RADIUS / view.zoom;
     
@@ -196,6 +162,16 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
         setDraggingObject({ type: 'droplet-radius', dropletId: droplet.id });
         return;
       }
+    }
+    
+    // If no object is being dragged, start panning
+    if (e.button === 0) {
+      setIsPanning(true);
+      const { canvasX, canvasY } = getMousePos(e);
+      setPanStart({
+        x: canvasX - view.pan.x,
+        y: canvasY - view.pan.y,
+      });
     }
   };
   
@@ -258,27 +234,11 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
     setIsPanning(false);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        const newZoom = Math.max(1, Math.min(view.zoom * (1 - e.deltaY * 0.001), 10));
-
-        const { canvasX, canvasY } = getMousePos(e);
-        
-        const imageX_before = (canvasX - view.pan.x) / view.zoom;
-        const imageY_before = (canvasY - view.pan.y) / view.zoom;
-        
-        const newPanX = canvasX - imageX_before * newZoom;
-        const newPanY = canvasY - imageY_before * newZoom;
-
-        onViewChange({ zoom: newZoom, pan: { x: newPanX, y: newPanY } });
-      }
-  };
 
   const getCursor = () => {
-      if (isSpacebarDown) return isPanning ? 'grabbing' : 'grab';
+      if (isPanning) return 'grabbing';
       if (draggingObject) return 'grabbing';
-      return 'crosshair';
+      return 'grab';
   }
 
   const handleTimestampEdit = () => {
@@ -351,6 +311,20 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
     }
   };
 
+  const handleZoomIn = () => {
+    const newZoom = Math.min(view.zoom * 1.2, 10);
+    onViewChange({ zoom: newZoom, pan: view.pan });
+  };
+
+  const handleZoomOut = () => {
+    const newZoom = Math.max(view.zoom / 1.2, 1);
+    onViewChange({ zoom: newZoom, pan: view.pan });
+  };
+
+  const handleZoomReset = () => {
+    onViewChange({ zoom: 1, pan: { x: 0, y: 0 } });
+  };
+
   return (
     <div className="relative">
       <canvas
@@ -361,14 +335,43 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
         className="w-full h-auto rounded-lg shadow-md bg-white"
         style={{ cursor: getCursor() }}
       />
       
+      {/* Zoom Controls */}
+      <div className="absolute top-4 right-4 bg-white bg-opacity-60 rounded-lg shadow-lg p-2">
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={handleZoomOut}
+            className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-lg font-bold"
+            title="Zoom Out"
+          >
+            −
+          </button>
+          <span className="text-sm font-medium text-gray-700 px-2">
+            {Math.round(view.zoom * 100)}%
+          </span>
+          <button
+            onClick={handleZoomIn}
+            className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-lg font-bold"
+            title="Zoom In"
+          >
+            +
+          </button>
+          <button
+            onClick={handleZoomReset}
+            className="w-8 h-8 bg-gray-200 hover:bg-gray-300 rounded flex items-center justify-center text-sm font-bold"
+            title="Reset Zoom"
+          >
+            ⌂
+          </button>
+        </div>
+      </div>
+
       {/* Editing Controls Overlay */}
       {analysis && (
-        <div className="absolute top-4 left-4 bg-white bg-opacity-90 rounded-lg shadow-lg p-3 space-y-2">
+        <div className="absolute top-4 left-4 bg-white bg-opacity-60 rounded-lg shadow-lg p-3 space-y-2">
           {/* Timestamp Editing */}
           <div className="flex items-center space-x-2">
             <span className="text-sm font-medium text-gray-700">Timestamp (seconds):</span>

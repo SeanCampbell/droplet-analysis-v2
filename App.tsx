@@ -598,13 +598,6 @@ const App: React.FC = () => {
       return (
         <div className="w-full flex flex-col items-center">
             <div className="w-full max-w-4xl relative">
-              <div className="absolute top-2 right-2 z-10 flex items-center space-x-2 bg-gray-800 bg-opacity-70 p-1 rounded-lg">
-                  <span className="text-xs text-gray-300 italic hidden sm:block pr-2">Ctrl+Scroll to Zoom, Space+Drag to Pan</span>
-                  <button onClick={() => setView(v => ({ ...v, zoom: Math.min(v.zoom * 1.2, 10) }))} className="px-2 py-1 text-white rounded hover:bg-gray-700 text-lg font-bold" title="Zoom In">+</button>
-                  <button onClick={() => setView(v => ({ ...v, zoom: Math.max(v.zoom / 1.2, 1) }))} className="px-2 py-1 text-white rounded hover:bg-gray-700 text-lg font-bold" title="Zoom Out">-</button>
-                  <button onClick={() => setView({ zoom: 1, pan: { x: 0, y: 0 } })} className="px-2 py-1 text-white rounded hover:bg-gray-700 text-xs" title="Reset Zoom">Reset</button>
-                  <span className="text-xs text-white pr-2">{Math.round(view.zoom * 100)}%</span>
-              </div>
               {currentAnalysis && (
                 <div className={`absolute top-2 left-2 z-10 bg-black bg-opacity-60 text-white p-2 rounded-md text-xs space-y-1 shadow-lg ${
                   (currentAnalysis.dropletsFound === false || 
