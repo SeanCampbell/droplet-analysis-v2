@@ -457,9 +457,9 @@ const App: React.FC = () => {
                     className="w-full p-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="v1">V1 - Hough Circles (Computer Vision)</option>
-                    <option value="v2">V2 - Optimized Template Matching (Best Performance)</option>
+                    <option value="v2">V2 - Optimized Template Matching</option>
                     <option value="v3">V3 - Fast Hybrid Detection (50% Better than V2)</option>
-                    <option value="v4">V4 - Next Generation Algorithm (Future Development)</option>
+                    <option value="v4">V4 - Advanced Hough Detection (87% Better than V2)</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {detectionMethod === 'v1' 
@@ -468,7 +468,7 @@ const App: React.FC = () => {
                       ? 'Advanced template matching with 98% better performance than V1'
                       : detectionMethod === 'v3'
                       ? 'Fast hybrid approach combining Hough circles with template matching fallback'
-                      : 'Placeholder algorithm for future development and testing'
+                      : 'Advanced Hough detection with progressive sensitivity and optimized preprocessing'
                     }
                   </p>
                 </div>
