@@ -71,6 +71,8 @@ def detect_circles_v8(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 | Baseline (Placeholder) | 353,983.49 | 65% worse | 29% worse | 1,182% worse | 1,781% worse | 1,715% worse | 1,841% worse | Random values |
 | Iteration 1 | 18,241.47 | 92% better | 93% better | 34% better | 3% better | 7% better | Same as V7 | V3 Hybrid with Microscope-Adaptive |
 | Iteration 2 | 322,480.71 | 50% worse | 18% worse | 1,068% worse | 1,614% worse | 1,552% worse | 1,667% worse | Force V3 Hybrid for All Microscopes |
+| Iteration 3 | 18,241.47 | 92% better | 93% better | 34% better | 3% better | 7% better | Same as V7 | Selective V3 for microscope_a only |
+| Iteration 4 | 250,776.10 | 17% worse | 10% worse | 808% worse | 1,233% worse | 1,186% worse | 1,275% worse | Corrected Classification + V3 Hybrid |
 
 ## Key Learnings from V7 Development
 
