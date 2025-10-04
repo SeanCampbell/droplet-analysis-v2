@@ -1440,12 +1440,19 @@ def detect_with_optimized_microscope_2(gray, min_radius, max_radius):
     """
     Optimized detection specifically for microscope_2 (frames 7-9)
     """
-    # Start with V7's approach but with parameters optimized for microscope_2
+    # V9 Iteration 3: Enhanced preprocessing for high brightness/edge density frames
     params = get_optimized_microscope_2_parameters()
     
-    # Simple preprocessing - just CLAHE for contrast enhancement
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    preprocessed = clahe.apply(gray)
+    # Enhanced preprocessing for microscope_2 (high brightness, high edge density)
+    # 1. Reduce brightness to normalize
+    normalized = cv2.convertScaleAbs(gray, alpha=0.7, beta=-50)
+    
+    # 2. Apply CLAHE for contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(normalized)
+    
+    # 3. Apply Gaussian blur to reduce edge noise
+    preprocessed = cv2.GaussianBlur(enhanced, (3, 3), 0)
     
     # Apply microscope_2-specific detection with progressive sensitivity
     droplets = detect_with_parameters(preprocessed, params, min_radius, max_radius)
@@ -1457,12 +1464,12 @@ def get_optimized_microscope_2_parameters():
     Get optimized parameters specifically for microscope_2 (frames 7-9)
     These will be iteratively improved based on performance on frames 7-9
     """
-    # V9 Iteration 1: More aggressive parameters for high brightness/edge density frames
+    # V9 Iteration 2: Very aggressive parameters for high brightness/edge density frames
     parameter_sets = {
-        'microscope_2': {  # Optimized for frames 7-9 - more aggressive
-            'minDist': 120, 'param1': 80, 'param2': 60,
-            'fallback1': {'minDist': 100, 'param1': 65, 'param2': 50},
-            'fallback2': {'minDist': 80, 'param1': 50, 'param2': 40}
+        'microscope_2': {  # Optimized for frames 7-9 - very aggressive
+            'minDist': 140, 'param1': 100, 'param2': 80,
+            'fallback1': {'minDist': 120, 'param1': 80, 'param2': 60},
+            'fallback2': {'minDist': 100, 'param1': 60, 'param2': 45}
         }
     }
     
