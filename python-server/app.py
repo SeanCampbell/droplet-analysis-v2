@@ -582,6 +582,58 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     
     return droplets
 
+def detect_circles_v4(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
+    """
+    V4 Detection Algorithm - Placeholder for Future Development
+    
+    This is a placeholder algorithm for future development and testing.
+    Currently returns random values but can be replaced with more sophisticated
+    detection methods.
+    
+    Args:
+        image: OpenCV image
+        min_radius: Minimum circle radius
+        max_radius: Maximum circle radius
+        dp: Inverse ratio of accumulator resolution (unused in v4)
+        min_dist: Minimum distance between circle centers (unused in v4)
+        param1: Upper threshold for edge detection (unused in v4)
+        param2: Accumulator threshold for center detection (unused in v4)
+    
+    Returns:
+        List of detected circles with format [cx, cy, r]
+    """
+    height, width = image.shape[:2]
+    
+    logger.debug(f"V4 Detection: Starting placeholder algorithm on {width}x{height} image")
+    
+    # Placeholder implementation - returns random values for testing
+    # This will be replaced with a more sophisticated algorithm in the future
+    np.random.seed(456)  # Different seed from v2 and v3 for variety
+    
+    # Generate two random droplets within the image bounds
+    droplets = []
+    for i in range(2):
+        # Random center position (with some margin from edges)
+        margin = 150
+        cx = np.random.randint(margin, width - margin)
+        cy = np.random.randint(margin, height - margin)
+        
+        # Random radius within the specified range, biased toward larger circles
+        r = np.random.randint(min_radius, max_radius)
+        
+        droplets.append({
+            'cx': cx,
+            'cy': cy,
+            'r': r,
+            'id': i
+        })
+    
+    logger.debug(f"V4 Detection: Generated {len(droplets)} placeholder droplets")
+    for i, droplet in enumerate(droplets):
+        logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
+    
+    return droplets
+
 def create_simplified_preprocessing(gray):
     """
     Create a single, optimized preprocessed image using only the most effective steps
@@ -2345,7 +2397,7 @@ def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_
         min_dist: Minimum distance between circle centers
         param1: Upper threshold for edge detection
         param2: Accumulator threshold for center detection
-        method: Detection method ("v1" for original, "v2" for optimized, "v3" for placeholder)
+        method: Detection method ("v1" for original, "v2" for optimized, "v3" for hybrid, "v4" for placeholder)
     
     Returns:
         Dictionary matching the Gemini service format
@@ -2356,7 +2408,10 @@ def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_
         logger.debug(f"Using detection method: v2 (optimized template matching)")
     elif method == "v3":
         droplets = detect_circles_v3(image, min_radius, max_radius, dp, min_dist, param1, param2)
-        logger.debug(f"Using detection method: v3 (placeholder algorithm)")
+        logger.debug(f"Using detection method: v3 (fast hybrid detection)")
+    elif method == "v4":
+        droplets = detect_circles_v4(image, min_radius, max_radius, dp, min_dist, param1, param2)
+        logger.debug(f"Using detection method: v4 (placeholder algorithm)")
     else:
         droplets = detect_circles_hough(image, min_radius, max_radius, dp, min_dist, param1, param2)
         logger.debug(f"Using detection method: v1 (Hough circles)")
@@ -2640,6 +2695,16 @@ if os.getenv('FLASK_ENV') == 'development':
                 )
             elif method == "v3":
                 circles = detect_circles_v3(
+                    image,
+                    min_radius=min_radius,
+                    max_radius=max_radius,
+                    dp=dp,
+                    min_dist=min_dist,
+                    param1=param1,
+                    param2=param2
+                )
+            elif method == "v4":
+                circles = detect_circles_v4(
                     image,
                     min_radius=min_radius,
                     max_radius=max_radius,
