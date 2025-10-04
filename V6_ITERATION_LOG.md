@@ -66,7 +66,7 @@ def detect_circles_v6(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 | Iteration | Average Total Loss | vs V2 | vs V3 | vs V4 | vs V5 | Notes |
 |-----------|-------------------|-------|-------|-------|-------|-------|
 | Baseline (Placeholder) | 362,898.28 | 69% worse | 33% worse | 1,214% worse | 1,828% worse | Random values |
-| Iteration 1 | TBD | TBD | TBD | TBD | TBD | TBD |
+| Iteration 1 | 1,519,174.89 | 608% worse | 455% worse | 5,404% worse | 7,975% worse | Contour-Based Detection |
 
 ## Key Learnings from V5 Development
 
