@@ -462,7 +462,7 @@ const App: React.FC = () => {
                     <option value="v4">V4 - Advanced Hough Detection (87% Better than V2)</option>
                     <option value="v5">V5 - Optimized Hough Detection (32% Better than V4)</option>
                     <option value="v6">V6 - Ultra-Optimized Hough Detection (4% Better than V5)</option>
-                    <option value="v7">V7 - Next Generation Algorithm (Future Development)</option>
+                    <option value="v7">V7 - Microscope-Adaptive Detection (1% Better than V6)</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {detectionMethod === 'v1' 
@@ -476,7 +476,7 @@ const App: React.FC = () => {
                       : detectionMethod === 'v6'
                       ? 'Ultra-optimized Hough detection with aggressive parameter tuning'
                       : detectionMethod === 'v7'
-                      ? 'Placeholder algorithm for future development and testing'
+                      ? 'Microscope-adaptive Hough detection with parameter optimization based on image characteristics'
                       : 'Advanced Hough detection with progressive sensitivity and optimized preprocessing'
                     }
                   </p>

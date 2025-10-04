@@ -976,22 +976,30 @@ def detect_circles_v7(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 def classify_microscope(gray):
     """
-    Classify the microscope type based on image characteristics
+    Classify the microscope type based on enhanced image characteristics
     """
-    # Extract image features
+    # Extract enhanced image features
     features = extract_image_features(gray)
     
-    # Simple rule-based classification
-    if features['contrast'] > 0.7 and features['noise'] < 0.3:
-        return 'microscope_a'  # High quality microscope
-    elif features['contrast'] > 0.4 and features['noise'] < 0.6:
-        return 'microscope_b'  # Medium quality microscope
+    # Enhanced rule-based classification with more sophisticated criteria
+    # Microscope A: High quality - excellent contrast, low noise, good brightness
+    if (features['contrast'] > 0.75 and features['noise'] < 0.25 and 
+        features['brightness'] > 0.3 and features['brightness'] < 0.8 and
+        features['edge_density'] > 0.1):
+        return 'microscope_a'
+    
+    # Microscope B: Medium quality - decent contrast, moderate noise
+    elif (features['contrast'] > 0.45 and features['noise'] < 0.55 and
+          features['brightness'] > 0.2 and features['brightness'] < 0.9):
+        return 'microscope_b'
+    
+    # Microscope C: Lower quality - poor contrast or high noise
     else:
-        return 'microscope_c'  # Lower quality microscope
+        return 'microscope_c'
 
 def extract_image_features(gray):
     """
-    Extract features from the image to classify microscope type
+    Extract enhanced features from the image to classify microscope type
     """
     # Calculate contrast (standard deviation of pixel values)
     contrast = np.std(gray) / 255.0
@@ -1004,10 +1012,23 @@ def extract_image_features(gray):
     # Calculate brightness
     brightness = np.mean(gray) / 255.0
     
+    # Calculate edge density (proportion of edge pixels)
+    edges = cv2.Canny(gray, 50, 150)
+    edge_density = np.sum(edges > 0) / (edges.shape[0] * edges.shape[1])
+    
+    # Calculate texture uniformity (local standard deviation)
+    # Use a small kernel to calculate local standard deviation
+    kernel = np.ones((5, 5), np.float32) / 25
+    local_mean = cv2.filter2D(gray.astype(np.float32), -1, kernel)
+    local_variance = cv2.filter2D((gray.astype(np.float32) - local_mean)**2, -1, kernel)
+    texture_uniformity = np.mean(np.sqrt(local_variance)) / 255.0
+    
     return {
         'contrast': contrast,
         'noise': noise,
-        'brightness': brightness
+        'brightness': brightness,
+        'edge_density': edge_density,
+        'texture_uniformity': texture_uniformity
     }
 
 def get_parameters_for_microscope(microscope_type):
@@ -1015,20 +1036,20 @@ def get_parameters_for_microscope(microscope_type):
     Get optimized parameters for the specific microscope type
     """
     parameter_sets = {
-        'microscope_a': {  # High quality - can use aggressive parameters
-            'minDist': 120, 'param1': 80, 'param2': 60,
-            'fallback1': {'minDist': 100, 'param1': 65, 'param2': 45},
-            'fallback2': {'minDist': 80, 'param1': 50, 'param2': 35}
+        'microscope_a': {  # High quality - can use very aggressive parameters
+            'minDist': 125, 'param1': 85, 'param2': 65,
+            'fallback1': {'minDist': 105, 'param1': 70, 'param2': 50},
+            'fallback2': {'minDist': 85, 'param1': 55, 'param2': 40}
         },
         'microscope_b': {  # Medium quality - balanced parameters
-            'minDist': 110, 'param1': 70, 'param2': 50,
-            'fallback1': {'minDist': 90, 'param1': 55, 'param2': 40},
-            'fallback2': {'minDist': 70, 'param1': 40, 'param2': 30}
+            'minDist': 115, 'param1': 75, 'param2': 55,
+            'fallback1': {'minDist': 95, 'param1': 60, 'param2': 45},
+            'fallback2': {'minDist': 75, 'param1': 45, 'param2': 35}
         },
         'microscope_c': {  # Lower quality - conservative parameters
-            'minDist': 100, 'param1': 60, 'param2': 45,
-            'fallback1': {'minDist': 80, 'param1': 45, 'param2': 35},
-            'fallback2': {'minDist': 60, 'param1': 35, 'param2': 25}
+            'minDist': 105, 'param1': 65, 'param2': 50,
+            'fallback1': {'minDist': 85, 'param1': 50, 'param2': 40},
+            'fallback2': {'minDist': 65, 'param1': 40, 'param2': 30}
         }
     }
     
