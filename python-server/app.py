@@ -1168,55 +1168,160 @@ def detect_with_parameters(preprocessed, params, min_radius, max_radius):
 
 def detect_circles_v8(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
-    V8 Detection Algorithm - Placeholder for Future Development
+    V8 Detection Algorithm - V3 Hybrid with Microscope-Adaptive Parameters
     
-    This is a placeholder algorithm for future development and testing.
-    Currently returns random values but can be replaced with more sophisticated
-    detection methods.
+    This algorithm combines V3's successful hybrid approach with V7's microscope-adaptive
+    parameter selection to get the best of both worlds.
     
     Args:
         image: OpenCV image
         min_radius: Minimum circle radius
         max_radius: Maximum circle radius
-        dp: Inverse ratio of accumulator resolution (unused in v8)
-        min_dist: Minimum distance between circle centers (unused in v8)
-        param1: Upper threshold for edge detection (unused in v8)
-        param2: Accumulator threshold for center detection (unused in v8)
+        dp: Inverse ratio of accumulator resolution
+        min_dist: Minimum distance between circle centers
+        param1: Upper threshold for edge detection
+        param2: Accumulator threshold for center detection
     
     Returns:
         List of detected circles with format [cx, cy, r]
     """
     height, width = image.shape[:2]
     
-    logger.debug(f"V8 Detection: Starting placeholder algorithm on {width}x{height} image")
+    logger.debug(f"V8 Detection: Starting V3 hybrid with microscope-adaptive parameters on {width}x{height} image")
     
-    # Placeholder implementation - returns random values for testing
-    # This will be replaced with a more sophisticated algorithm in the future
-    np.random.seed(161718)  # Different seed from v2, v3, v4, v5, v6, and v7 for variety
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
     
-    # Generate two random droplets within the image bounds
-    droplets = []
-    for i in range(2):
-        # Random center position (with some margin from edges)
-        margin = 150
-        cx = np.random.randint(margin, width - margin)
-        cy = np.random.randint(margin, height - margin)
-        
-        # Random radius within the specified range, biased toward larger circles
-        r = np.random.randint(min_radius, max_radius)
-        
-        droplets.append({
-            'cx': cx,
-            'cy': cy,
-            'r': r,
-            'id': i
-        })
+    # 1. Classify microscope type (using V7's classification)
+    microscope_type = classify_microscope(gray)
+    logger.debug(f"V8 Detection: Classified microscope as: {microscope_type}")
     
-    logger.debug(f"V8 Detection: Generated {len(droplets)} placeholder droplets")
+    # 2. Select approach based on microscope type
+    if microscope_type in ['microscope_a', 'microscope_b']:  # V3 worked well on these
+        # Use V3's hybrid approach with microscope-specific parameters
+        droplets = detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius)
+    else:  # V3 struggled on these
+        # Use V7's adaptive approach
+        droplets = detect_with_v7_adaptive(gray, microscope_type, min_radius, max_radius)
+    
+    logger.debug(f"V8 Detection: Found {len(droplets)} droplets using V3 hybrid approach")
     for i, droplet in enumerate(droplets):
         logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
     return droplets
+
+def detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius):
+    """
+    Use V3's hybrid approach with microscope-specific parameters
+    """
+    # Get V3-style parameters for this microscope type
+    params = get_v3_parameters_for_microscope(microscope_type)
+    
+    # Fast preprocessing - just CLAHE (proven most effective)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
+    
+    # Try fast Hough first with microscope-specific parameters
+    circles = cv2.HoughCircles(
+        enhanced,
+        cv2.HOUGH_GRADIENT,
+        dp=1,
+        minDist=params['minDist'],
+        param1=params['param1'],
+        param2=params['param2'],
+        minRadius=min_radius,
+        maxRadius=max_radius
+    )
+    
+    droplets = []
+    
+    if circles is not None:
+        circles = np.round(circles[0, :]).astype("int")
+        logger.debug(f"V8 V3 Hybrid: Hough found {len(circles)} circles")
+        
+        # Take the first 2 circles (Hough returns them sorted by confidence)
+        for i, circle in enumerate(circles[:2]):
+            x, y, r = circle
+            droplets.append({
+                'cx': x,
+                'cy': y,
+                'r': r,
+                'id': i
+            })
+    
+    # If we don't have 2 circles, use V2 template matching for the rest
+    if len(droplets) < 2:
+        logger.debug("V8 V3 Hybrid: Supplementing with optimized template matching")
+        template_circles = detect_circles_optimized_template_matching(gray)
+        
+        # Add template matching results, avoiding duplicates
+        existing_positions = [(d['cx'], d['cy']) for d in droplets]
+        
+        for circle in template_circles:
+            if len(droplets) >= 2:
+                break
+                
+            if isinstance(circle, dict):
+                x, y, r = circle['cx'], circle['cy'], circle['r']
+            else:
+                x, y, r = circle[0], circle[1], circle[2]
+            
+            # Check if this position is too close to existing droplets
+            too_close = False
+            for ex_x, ex_y in existing_positions:
+                if np.sqrt((x - ex_x)**2 + (y - ex_y)**2) < 100:  # Stricter distance
+                    too_close = True
+                    break
+            
+            if not too_close:
+                droplets.append({
+                    'cx': x,
+                    'cy': y,
+                    'r': r,
+                    'id': len(droplets)
+                })
+                existing_positions.append((x, y))
+    
+    # If still not enough, generate smart fallbacks
+    while len(droplets) < 2:
+        fallback = generate_fast_fallback_circle(gray, min_radius, max_radius, droplets)
+        droplets.append(fallback)
+    
+    return droplets
+
+def detect_with_v7_adaptive(gray, microscope_type, min_radius, max_radius):
+    """
+    Use V7's adaptive approach for microscopes V3 struggled with
+    """
+    # Get optimized parameters for this microscope type
+    params = get_parameters_for_microscope(microscope_type)
+    
+    # Simple preprocessing - just CLAHE for contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    preprocessed = clahe.apply(gray)
+    
+    # Apply microscope-specific detection with progressive sensitivity
+    droplets = detect_with_parameters(preprocessed, params, min_radius, max_radius)
+    
+    return droplets
+
+def get_v3_parameters_for_microscope(microscope_type):
+    """
+    Get V3-style parameters optimized for the specific microscope type
+    """
+    parameter_sets = {
+        'microscope_a': {  # High quality - can use V3's aggressive parameters
+            'minDist': 80, 'param1': 45, 'param2': 55
+        },
+        'microscope_b': {  # Medium quality - slightly adjusted V3 parameters
+            'minDist': 85, 'param1': 50, 'param2': 60
+        }
+    }
+    
+    return parameter_sets.get(microscope_type, parameter_sets['microscope_a'])
 
 def create_enhanced_preprocessing(gray):
     """

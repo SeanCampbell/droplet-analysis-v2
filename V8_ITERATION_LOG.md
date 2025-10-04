@@ -12,7 +12,7 @@ This document tracks the development and iteration of the V8 droplet detection a
 - **V5 (Optimized Hough Detection)**: 18,812.52 average total loss (91% better than V2, 32% better than V4)
 - **V6 (Ultra-Optimized Hough Detection)**: 19,516.92 average total loss (91% better than V2, 4% better than V5)
 - **V7 (Microscope-Adaptive Detection)**: 18,241.47 average total loss (92% better than V2, 7% better than V6)
-- **V8 (Placeholder)**: TBD
+- **V8 (Placeholder)**: 353,983.49 average total loss
 
 ### Key Observations:
 - V7 is currently the best performer with 92% improvement over V2 and 7% improvement over V6
@@ -68,7 +68,7 @@ def detect_circles_v8(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 | Iteration | Average Total Loss | vs V2 | vs V3 | vs V4 | vs V5 | vs V6 | vs V7 | Notes |
 |-----------|-------------------|-------|-------|-------|-------|-------|-------|-------|
-| Baseline (Placeholder) | TBD | TBD | TBD | TBD | TBD | TBD | TBD | Random values |
+| Baseline (Placeholder) | 353,983.49 | 65% worse | 29% worse | 1,182% worse | 1,781% worse | 1,715% worse | 1,841% worse | Random values |
 | Iteration 1 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 
 ## Key Learnings from V7 Development
