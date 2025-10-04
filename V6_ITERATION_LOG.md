@@ -67,6 +67,7 @@ def detect_circles_v6(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 |-----------|-------------------|-------|-------|-------|-------|-------|
 | Baseline (Placeholder) | 362,898.28 | 69% worse | 33% worse | 1,214% worse | 1,828% worse | Random values |
 | Iteration 1 | 1,519,174.89 | 608% worse | 455% worse | 5,404% worse | 7,975% worse | Contour-Based Detection |
+| Iteration 2 | 66,478.11 | 69% worse | 76% worse | 141% worse | 253% worse | Ultra-Fine-Tuned V5 |
 
 ## Key Learnings from V5 Development
 

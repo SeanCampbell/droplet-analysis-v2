@@ -845,8 +845,8 @@ def detect_circles_v6(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     
     # Ultra-fine-tuned Hough detection with optimized parameters
     circles = cv2.HoughCircles(
-        preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=110,
-        param1=70, param2=50, minRadius=min_radius, maxRadius=max_radius
+        preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=115,
+        param1=75, param2=55, minRadius=min_radius, maxRadius=max_radius
     )
     
     droplets = []
@@ -864,8 +864,8 @@ def detect_circles_v6(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     # If we found fewer than 2 circles, try with more sensitive parameters
     if len(droplets) < 2:
         circles_sensitive = cv2.HoughCircles(
-            preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=90,
-            param1=55, param2=35, minRadius=min_radius, maxRadius=max_radius
+            preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=95,
+            param1=60, param2=40, minRadius=min_radius, maxRadius=max_radius
         )
         
         if circles_sensitive is not None:
@@ -891,8 +891,8 @@ def detect_circles_v6(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     # If still fewer than 2, try with very sensitive parameters
     if len(droplets) < 2:
         circles_very_sensitive = cv2.HoughCircles(
-            preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=70,
-            param1=40, param2=25, minRadius=min_radius, maxRadius=max_radius
+            preprocessed, cv2.HOUGH_GRADIENT, dp=1, minDist=75,
+            param1=45, param2=30, minRadius=min_radius, maxRadius=max_radius
         )
         
         if circles_very_sensitive is not None:
