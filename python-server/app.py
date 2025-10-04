@@ -464,10 +464,10 @@ def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
-    V3 Detection Algorithm - Simplified Hough with Selective Preprocessing
+    V3 Detection Algorithm - Fast Hybrid Approach
     
-    This iteration focuses on a simplified approach with only the most effective
-    preprocessing steps and stricter confidence thresholds.
+    This iteration combines the speed of V1 Hough with the accuracy of V2 template matching
+    in a fast, efficient hybrid approach.
     
     Args:
         image: OpenCV image
@@ -483,7 +483,7 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     """
     height, width = image.shape[:2]
     
-    logger.debug(f"V3 Detection: Starting simplified Hough algorithm on {width}x{height} image")
+    logger.debug(f"V3 Detection: Starting fast hybrid algorithm on {width}x{height} image")
     
     # Convert to grayscale if needed
     if len(image.shape) == 3:
@@ -491,84 +491,77 @@ def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     else:
         gray = image.copy()
     
-    # Simplified preprocessing - only the most effective steps
-    preprocessed = create_simplified_preprocessing(gray)
+    # Fast preprocessing - just CLAHE (proven most effective)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced = clahe.apply(gray)
     
-    # Single optimized Hough parameter set
+    # Try fast Hough first with optimized parameters
     circles = cv2.HoughCircles(
-        preprocessed,
+        enhanced,
         cv2.HOUGH_GRADIENT,
         dp=1,
         minDist=min_dist,
-        param1=60,  # Optimized for better edge detection
-        param2=70,  # Higher threshold for fewer false positives
+        param1=50,
+        param2=60,  # Lower threshold for more sensitivity
         minRadius=min_radius,
         maxRadius=max_radius
     )
     
-    detected_circles = []
+    droplets = []
     
     if circles is not None:
         circles = np.round(circles[0, :]).astype("int")
-        logger.debug(f"V3 Detection: Hough found {len(circles)} raw circles")
+        logger.debug(f"V3 Detection: Hough found {len(circles)} circles")
         
-        for circle in circles:
+        # Take the first 2 circles (Hough returns them sorted by confidence)
+        for i, circle in enumerate(circles[:2]):
             x, y, r = circle
-            # Stricter confidence validation
-            confidence = calculate_enhanced_circle_confidence(gray, x, y, r)
-            if confidence > 0.6:  # Much higher threshold
-                detected_circles.append({
-                    'cx': x,
-                    'cy': y,
-                    'r': r,
-                    'confidence': confidence
-                })
-                logger.debug(f"  Circle at ({x}, {y}) with radius {r}, confidence: {confidence:.3f}")
+            droplets.append({
+                'cx': x,
+                'cy': y,
+                'r': r,
+                'id': i
+            })
     
-    # If Hough didn't find good circles, fallback to V2 template matching
-    if len(detected_circles) < 2:
-        logger.debug("V3 Detection: Hough found insufficient circles, falling back to V2 template matching")
+    # If we don't have 2 circles, use V2 template matching for the rest
+    if len(droplets) < 2:
+        logger.debug("V3 Detection: Supplementing with V2 template matching")
         template_circles = detect_circles_optimized_template_matching(gray)
         
+        # Add template matching results, avoiding duplicates
+        existing_positions = [(d['cx'], d['cy']) for d in droplets]
+        
         for circle in template_circles:
+            if len(droplets) >= 2:
+                break
+                
             if isinstance(circle, dict):
                 x, y, r = circle['cx'], circle['cy'], circle['r']
             else:
                 x, y, r = circle[0], circle[1], circle[2]
             
-            confidence = calculate_enhanced_circle_confidence(gray, x, y, r)
-            detected_circles.append({
-                'cx': x,
-                'cy': y,
-                'r': r,
-                'confidence': confidence
-            })
+            # Check if this position is too close to existing droplets
+            too_close = False
+            for ex_x, ex_y in existing_positions:
+                if np.sqrt((x - ex_x)**2 + (y - ex_y)**2) < min_dist:
+                    too_close = True
+                    break
+            
+            if not too_close:
+                droplets.append({
+                    'cx': x,
+                    'cy': y,
+                    'r': r,
+                    'id': len(droplets)
+                })
+                existing_positions.append((x, y))
     
-    # Remove duplicates and select best candidates
-    final_circles = select_best_circles_v2(detected_circles, min_dist)
+    # If still not enough, generate smart fallbacks
+    while len(droplets) < 2:
+        fallback = generate_fast_fallback_circle(gray, min_radius, max_radius, droplets)
+        droplets.append(fallback)
     
-    # Ensure we have exactly 2 droplets
-    if len(final_circles) > 2:
-        # Select the 2 most confident circles
-        final_circles.sort(key=lambda x: x.get('confidence', 0), reverse=True)
-        final_circles = final_circles[:2]
-    elif len(final_circles) < 2:
-        # Fill with reasonable fallback circles
-        while len(final_circles) < 2:
-            fallback = generate_smart_fallback_circle(gray, min_radius, max_radius, final_circles)
-            final_circles.append(fallback)
-    
-    # Format output
-    droplets = []
-    for i, circle in enumerate(final_circles):
-        droplets.append({
-            'cx': circle['cx'],
-            'cy': circle['cy'],
-            'r': circle['r'],
-            'id': i
-        })
-    
-    logger.debug(f"V3 Detection: Found {len(droplets)} droplets using simplified approach")
+    logger.debug(f"V3 Detection: Found {len(droplets)} droplets using fast hybrid approach")
     for i, droplet in enumerate(droplets):
         logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
@@ -796,6 +789,76 @@ def refine_circle_parameters(gray, circle):
         'cy': y,
         'r': best_radius,
         'confidence': best_score
+    }
+
+def generate_fast_fallback_circle(gray, min_radius, max_radius, existing_droplets):
+    """
+    Generate a fast fallback circle that avoids existing droplets
+    """
+    height, width = gray.shape
+    
+    # Simple approach - find bright regions using thresholding
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if contours:
+        # Find the largest contour that doesn't overlap with existing droplets
+        for contour in sorted(contours, key=cv2.contourArea, reverse=True):
+            (x, y), radius = cv2.minEnclosingCircle(contour)
+            
+            if min_radius <= radius <= max_radius:
+                # Check if this circle is far enough from existing ones
+                too_close = False
+                for droplet in existing_droplets:
+                    dist = np.sqrt((x - droplet['cx'])**2 + (y - droplet['cy'])**2)
+                    if dist < 150:  # Minimum distance
+                        too_close = True
+                        break
+                
+                if not too_close:
+                    return {
+                        'cx': int(x),
+                        'cy': int(y),
+                        'r': int(radius),
+                        'id': len(existing_droplets)
+                    }
+    
+    # If no good contour found, generate a reasonable default
+    margin = 150
+    attempts = 0
+    while attempts < 20:  # Try up to 20 times
+        cx = np.random.randint(margin, width - margin)
+        cy = np.random.randint(margin, height - margin)
+        r = np.random.randint(min_radius, min(max_radius, min(width, height) // 4))
+        
+        # Check distance from existing droplets
+        too_close = False
+        for droplet in existing_droplets:
+            dist = np.sqrt((cx - droplet['cx'])**2 + (cy - droplet['cy'])**2)
+            if dist < 150:
+                too_close = True
+                break
+        
+        if not too_close:
+            return {
+                'cx': cx,
+                'cy': cy,
+                'r': r,
+                'id': len(existing_droplets)
+            }
+        
+        attempts += 1
+    
+    # Last resort - just generate any circle
+    cx = np.random.randint(margin, width - margin)
+    cy = np.random.randint(margin, height - margin)
+    r = np.random.randint(min_radius, min(max_radius, min(width, height) // 4))
+    
+    return {
+        'cx': cx,
+        'cy': cy,
+        'r': r,
+        'id': len(existing_droplets)
     }
 
 def generate_smart_fallback_circle(gray, min_radius, max_radius, existing_circles):
