@@ -976,25 +976,20 @@ def detect_circles_v7(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 def classify_microscope(gray):
     """
-    Classify the microscope type based on enhanced image characteristics
+    Classify the microscope type based on actual microscope analysis
     """
     # Extract enhanced image features
     features = extract_image_features(gray)
     
-    # Updated classification based on V3 performance analysis
-    # Microscope A: V3 performs excellently - very low brightness, very low edge density
-    if (features['brightness'] < 0.59 and features['edge_density'] < 0.002 and
-        features['contrast'] > 0.14 and features['contrast'] < 0.16):
-        return 'microscope_a'
+    # Classification based on actual microscope analysis:
+    # Microscope 1 (Frames 0-3, 10-13): V3 works well on some frames
+    # Microscope 2 (Frames 7-9): V3 works poorly on all frames
+    # Key distinguishing feature: brightness (threshold = 0.658)
     
-    # Microscope B: V3 performs moderately - low brightness, low edge density
-    elif (features['brightness'] < 0.61 and features['edge_density'] < 0.002 and
-          features['contrast'] > 0.14 and features['contrast'] < 0.17):
-        return 'microscope_b'
-    
-    # Microscope C: V3 performs poorly - higher brightness or higher edge density
-    else:
-        return 'microscope_c'
+    if features['brightness'] < 0.658:  # Microscope 1 - lower brightness
+        return 'microscope_1'
+    else:  # Microscope 2 - higher brightness
+        return 'microscope_2'
 
 def extract_image_features(gray):
     """
@@ -1198,11 +1193,11 @@ def detect_circles_v8(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
     microscope_type = classify_microscope(gray)
     logger.debug(f"V8 Detection: Classified microscope as: {microscope_type}")
     
-    # 2. Select approach based on corrected microscope classification
-    if microscope_type in ['microscope_a', 'microscope_b']:  # V3 works well on these
-        # Use V3's hybrid approach with microscope-specific parameters
+    # 2. Select approach based on actual microscope classification
+    if microscope_type == 'microscope_1':  # V3 works well on some frames (0,2,3,10)
+        # Use V3's hybrid approach with V3's exact parameters
         droplets = detect_with_v3_hybrid(gray, microscope_type, min_radius, max_radius)
-    else:  # V3 struggles on these
+    else:  # microscope_2 - V3 struggles on all frames
         # Use V7's adaptive approach
         droplets = detect_with_v7_adaptive(gray, microscope_type, min_radius, max_radius)
     
@@ -1312,18 +1307,15 @@ def get_v3_parameters_for_microscope(microscope_type):
     Get V3-style parameters optimized for the specific microscope type
     """
     parameter_sets = {
-        'microscope_a': {  # High quality - use V3's exact successful parameters
+        'microscope_1': {  # V3 works well on some frames (0,2,3,10) - use V3's exact parameters
             'minDist': 80, 'param1': 45, 'param2': 55
         },
-        'microscope_b': {  # Medium quality - use V3's exact successful parameters
-            'minDist': 80, 'param1': 45, 'param2': 55
-        },
-        'microscope_c': {  # Lower quality - more conservative V3 parameters
+        'microscope_2': {  # V3 struggles on all frames - use more conservative parameters
             'minDist': 90, 'param1': 55, 'param2': 65
         }
     }
     
-    return parameter_sets.get(microscope_type, parameter_sets['microscope_a'])
+    return parameter_sets.get(microscope_type, parameter_sets['microscope_1'])
 
 def detect_with_v7_enhanced_template(gray, microscope_type, min_radius, max_radius):
     """
