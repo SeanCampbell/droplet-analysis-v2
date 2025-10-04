@@ -2,11 +2,8 @@ import React, { useState, useCallback, useMemo } from 'react';
 import JSZip from 'jszip';
 import type { FrameAnalysis, Droplet } from './types';
 import { extractFramesFromVideo, VideoProcessingProgress } from './services/videoService';
-import { analyzeFrameWithGemini } from './services/geminiService';
 import { detectCirclesWithHough, analyzeFrameWithHough } from './services/houghCircleService';
 import { FrameCanvas } from './components/FrameCanvas';
-
-type DetectionAlgorithm = 'gemini' | 'hough';
 
 const App: React.FC = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -21,7 +18,6 @@ const App: React.FC = () => {
   const [videoProcessingMessage, setVideoProcessingMessage] = useState<string>('');
   const [imageDimensions, setImageDimensions] = useState({ width: 1280, height: 720 });
   const [frameInterval, setFrameInterval] = useState(120);
-  const [detectionAlgorithm, setDetectionAlgorithm] = useState<DetectionAlgorithm>('hough');
   const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8' | 'v9'>('v9');
   const [view, setView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   const [showCSVModal, setShowCSVModal] = useState(false);
@@ -128,21 +124,17 @@ const App: React.FC = () => {
           const frameData = extractedFrames[frameIndex];
           let analysisResult;
 
-          if (detectionAlgorithm === 'gemini') {
-            analysisResult = await analyzeFrameWithGemini(frameData);
-          } else {
-            // Convert base64 to ImageData for Hough
-            const img = new Image();
-            img.src = `data:image/jpeg;base64,${frameData}`;
-            await new Promise(resolve => { img.onload = resolve; });
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx?.drawImage(img, 0, 0);
-            const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
-            analysisResult = await analyzeFrameWithHough(imageData!, detectionMethod);
-          }
+          // Convert base64 to ImageData for Hough
+          const img = new Image();
+          img.src = `data:image/jpeg;base64,${frameData}`;
+          await new Promise(resolve => { img.onload = resolve; });
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx?.drawImage(img, 0, 0);
+          const imageData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+          analysisResult = await analyzeFrameWithHough(imageData!, detectionMethod);
 
           // Create sensible defaults if AI detection fails
           if (!analysisResult.dropletsFound || analysisResult.droplets.length < 2) {
@@ -244,65 +236,35 @@ const App: React.FC = () => {
         const frameData = extractedFrames[i];
         let analysisResult;
 
-        if (detectionAlgorithm === 'gemini') {
-            analysisResult = await analyzeFrameWithGemini(frameData);
+        // Hough Transform
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const image = new Image();
+        image.src = `data:image/jpeg;base64,${frameData}`;
+        await new Promise(r => image.onload = r);
+        
+        canvas.width = image.width;
+        canvas.height = image.height;
+        ctx?.drawImage(image, 0, 0);
+        const imageData = ctx?.getImageData(0, 0, image.width, image.height);
 
-            // Create sensible defaults if AI detection fails
-            if (!analysisResult.dropletsFound || analysisResult.droplets.length < 2) {
-                const r = width * 0.1;
-                analysisResult.droplets = [
-                    { id: 0, cx: width / 2 - r, cy: height / 2, r },
-                    { id: 1, cx: width / 2 + r, cy: height / 2, r },
-                ];
-                analysisResult.dropletsFound = false;
-            }
-            if (!analysisResult.scaleFound || !analysisResult.scale.x1) {
-                const margin = Math.min(width, height) * 0.05;
-                const scaleLength = width * 0.15;
-                analysisResult.scale = {
-                    x1: width - margin - scaleLength,
-                    y1: height - margin,
-                    x2: width - margin,
-                    y2: height - margin,
-                    label: "50 µm (default)",
-                    length: scaleLength
-                };
-                analysisResult.scaleFound = false;
-            }
-             if (!analysisResult.timestampFound) {
-                analysisResult.timestamp = "Not Found";
-            }
-
-        } else { // Hough Transform
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const image = new Image();
-            image.src = `data:image/jpeg;base64,${frameData}`;
-            await new Promise(r => image.onload = r);
-            
-            canvas.width = image.width;
-            canvas.height = image.height;
-            ctx?.drawImage(image, 0, 0);
-            const imageData = ctx?.getImageData(0, 0, image.width, image.height);
-
-            if (imageData) {
-                // Use the new comprehensive analysis function
-                analysisResult = await analyzeFrameWithHough(imageData, detectionMethod);
-            } else {
-                // Fallback if imageData is null
-                analysisResult = {
-                    timestamp: "Not Found",
-                    timestampFound: false,
-                    scaleFound: false,
-                    dropletsFound: false,
-                    droplets: [],
-                    scale: {
-                        x1: 0, y1: 0, x2: 0, y2: 0,
-                        label: "Not Found",
-                        length: 0
-                    }
-                };
-            }
+        if (imageData) {
+            // Use the new comprehensive analysis function
+            analysisResult = await analyzeFrameWithHough(imageData, detectionMethod);
+        } else {
+            // Fallback if imageData is null
+            analysisResult = {
+                timestamp: "Not Found",
+                timestampFound: false,
+                scaleFound: false,
+                dropletsFound: false,
+                droplets: [],
+                scale: {
+                    x1: 0, y1: 0, x2: 0, y2: 0,
+                    label: "Not Found",
+                    length: 0
+                }
+            };
         }
         
         const newAnalysis: FrameAnalysis = { frame: i, ...analysisResult };
@@ -1125,64 +1087,50 @@ const App: React.FC = () => {
               </div>
 
                <div>
-                <label htmlFor="detection-algorithm" className="block text-sm font-medium text-gray-700 mb-1">3. Droplet Detection Method</label>
+                <label htmlFor="detection-method" className="block text-sm font-medium text-gray-700 mb-1">3. Detection Version</label>
                 <select
-                  id="detection-algorithm"
-                  value={detectionAlgorithm}
-                  onChange={(e) => setDetectionAlgorithm(e.target.value as DetectionAlgorithm)}
+                  id="detection-method"
+                  value={detectionMethod}
+                  onChange={(e) => setDetectionMethod(e.target.value as 'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8' | 'v9')}
                   disabled={status === 'extracting' || status === 'analyzing'}
                   className="w-full p-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="gemini">Gemini Vision</option>
-                  <option value="hough">Hough Transform</option>
+                  <option value="v1">V1 - Hough Circles (Computer Vision)</option>
+                  <option value="v2">V2 - Optimized Template Matching</option>
+                  <option value="v3">V3 - Fast Hybrid Detection (50% Better than V2)</option>
+                  <option value="v4">V4 - Advanced Hough Detection (87% Better than V2)</option>
+                  <option value="v5">V5 - Optimized Hough Detection (32% Better than V4)</option>
+                  <option value="v6">V6 - Ultra-Optimized Hough Detection (4% Better than V5)</option>
+                  <option value="v7">V7 - Microscope-Adaptive Detection (7% Better than V6)</option>
+                  <option value="v8">V8 - V3 Hybrid with Sophisticated Selection (7.6% Better than V7)</option>
+                  <option value="v9">V9 - Complete Microscope_2 Optimization (72.6% Droplet + 99.1% Scale)</option>
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {detectionMethod === 'v1' 
+                    ? 'Uses computer vision algorithms to detect actual droplets' 
+                    : detectionMethod === 'v2'
+                    ? 'Advanced template matching with 98% better performance than V1'
+                    : detectionMethod === 'v3'
+                    ? 'Fast hybrid approach combining Hough circles with template matching fallback'
+                    : detectionMethod === 'v4'
+                    ? 'Advanced Hough detection with progressive sensitivity and optimized preprocessing'
+                    : detectionMethod === 'v5'
+                    ? 'Optimized Hough detection with fine-tuned parameters and progressive sensitivity'
+                    : detectionMethod === 'v6'
+                    ? 'Ultra-optimized Hough detection with aggressive parameter tuning'
+                    : detectionMethod === 'v7'
+                    ? 'Microscope-adaptive Hough detection with parameter optimization based on image characteristics'
+                    : detectionMethod === 'v8'
+                    ? 'V3 hybrid approach with sophisticated selection criteria for optimal performance'
+                    : detectionMethod === 'v9'
+                    ? 'Complete microscope_2 optimization with 72.6% better droplet detection and 99.1% better scale detection accuracy'
+                    : 'Advanced Hough detection with progressive sensitivity and optimized preprocessing'
+                  }
+                </p>
               </div>
 
-              {detectionAlgorithm === 'hough' && (
-                <div>
-                  <label htmlFor="detection-method" className="block text-sm font-medium text-gray-700 mb-1">4. Hough Detection Version</label>
-                  <select
-                    id="detection-method"
-                    value={detectionMethod}
-                    onChange={(e) => setDetectionMethod(e.target.value as 'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8' | 'v9')}
-                    disabled={status === 'extracting' || status === 'analyzing'}
-                    className="w-full p-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="v1">V1 - Hough Circles (Computer Vision)</option>
-                    <option value="v2">V2 - Optimized Template Matching</option>
-                    <option value="v3">V3 - Fast Hybrid Detection (50% Better than V2)</option>
-                    <option value="v4">V4 - Advanced Hough Detection (87% Better than V2)</option>
-                    <option value="v5">V5 - Optimized Hough Detection (32% Better than V4)</option>
-                    <option value="v6">V6 - Ultra-Optimized Hough Detection (4% Better than V5)</option>
-                    <option value="v7">V7 - Microscope-Adaptive Detection (7% Better than V6)</option>
-                    <option value="v8">V8 - V3 Hybrid with Sophisticated Selection (7.6% Better than V7)</option>
-                    <option value="v9">V9 - Complete Microscope_2 Optimization (72.6% Droplet + 99.1% Scale)</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {detectionMethod === 'v1' 
-                      ? 'Uses computer vision algorithms to detect actual droplets' 
-                      : detectionMethod === 'v2'
-                      ? 'Advanced template matching with 98% better performance than V1'
-                      : detectionMethod === 'v3'
-                      ? 'Fast hybrid approach combining Hough circles with template matching fallback'
-                      : detectionMethod === 'v5'
-                      ? 'Optimized Hough detection with fine-tuned parameters and progressive sensitivity'
-                      : detectionMethod === 'v6'
-                      ? 'Ultra-optimized Hough detection with aggressive parameter tuning'
-                      : detectionMethod === 'v7'
-                      ? 'Microscope-adaptive Hough detection with parameter optimization based on image characteristics'
-                      : detectionMethod === 'v8'
-                      ? 'V3 hybrid approach with sophisticated selection criteria for optimal performance'
-                      : detectionMethod === 'v9'
-                      ? 'Complete microscope_2 optimization with 72.6% better droplet detection and 99.1% better scale detection accuracy'
-                      : 'Advanced Hough detection with progressive sensitivity and optimized preprocessing'
-                    }
-                  </p>
-                </div>
-              )}
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">5. Start Analysis</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">4. Start Analysis</label>
                 {batchMode ? (
                   <button
                     onClick={handleBatchAnalyze}
@@ -1205,7 +1153,7 @@ const App: React.FC = () => {
               </div>
 
               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">6. Export & Load</label>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">5. Export & Load</label>
                  {batchMode ? (
                    <div className="space-y-2">
                      <button
@@ -1232,9 +1180,9 @@ const App: React.FC = () => {
                    </div>
                  ) : null}
                  
-                 {batchMode && Object.keys(batchAnalyses).length > 0 && (
-                   <div>
-                     <label className="block text-sm font-medium text-gray-700 mb-1">7. Select Video to View</label>
+                   {batchMode && Object.keys(batchAnalyses).length > 0 && (
+                     <div>
+                       <label className="block text-sm font-medium text-gray-700 mb-1">6. Select Video to View</label>
                      <select
                        value={selectedBatchVideo}
                        onChange={(e) => handleBatchVideoSelect(e.target.value)}
