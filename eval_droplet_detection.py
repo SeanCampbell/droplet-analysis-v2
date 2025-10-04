@@ -199,8 +199,8 @@ def main():
                        help='Output file for evaluation results')
     parser.add_argument('--verbose', action='store_true',
                        help='Print detailed results for each frame')
-    parser.add_argument('--method', default='v1', choices=['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8'],
-                       help='Detection method: v1 (Hough circles), v2 (optimized template matching), v3 (fast hybrid), v4 (advanced hough), v5 (optimized hough), v6 (ultra-optimized hough), v7 (microscope-adaptive), or v8 (placeholder)')
+    parser.add_argument('--method', default='v1', choices=['v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9'],
+                       help='Detection method: v1 (Hough circles), v2 (optimized template matching), v3 (fast hybrid), v4 (advanced hough), v5 (optimized hough), v6 (ultra-optimized hough), v7 (microscope-adaptive), v8 (v3 hybrid), or v9 (microscope_2 optimization)')
     
     args = parser.parse_args()
     

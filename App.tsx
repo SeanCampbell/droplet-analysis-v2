@@ -22,7 +22,7 @@ const App: React.FC = () => {
   const [imageDimensions, setImageDimensions] = useState({ width: 1280, height: 720 });
   const [frameInterval, setFrameInterval] = useState(120);
   const [detectionAlgorithm, setDetectionAlgorithm] = useState<DetectionAlgorithm>('hough');
-  const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8'>('v8');
+  const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8' | 'v9'>('v9');
   const [view, setView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -452,7 +452,7 @@ const App: React.FC = () => {
                   <select
                     id="detection-method"
                     value={detectionMethod}
-                    onChange={(e) => setDetectionMethod(e.target.value as 'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8')}
+                    onChange={(e) => setDetectionMethod(e.target.value as 'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8' | 'v9')}
                     disabled={status === 'extracting' || status === 'analyzing'}
                     className="w-full p-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                   >
@@ -464,6 +464,7 @@ const App: React.FC = () => {
                     <option value="v6">V6 - Ultra-Optimized Hough Detection (4% Better than V5)</option>
                     <option value="v7">V7 - Microscope-Adaptive Detection (7% Better than V6)</option>
                     <option value="v8">V8 - V3 Hybrid with Sophisticated Selection (7.6% Better than V7)</option>
+                    <option value="v9">V9 - Microscope_2 Parameter Optimization (Future Development)</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {detectionMethod === 'v1' 
@@ -480,6 +481,8 @@ const App: React.FC = () => {
                       ? 'Microscope-adaptive Hough detection with parameter optimization based on image characteristics'
                       : detectionMethod === 'v8'
                       ? 'V3 hybrid approach with sophisticated selection criteria for optimal performance'
+                      : detectionMethod === 'v9'
+                      ? 'Microscope_2 parameter optimization focused on frames 7-9 for improved performance'
                       : 'Advanced Hough detection with progressive sensitivity and optimized preprocessing'
                     }
                   </p>

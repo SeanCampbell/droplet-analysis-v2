@@ -1386,6 +1386,88 @@ def detect_with_v7_enhanced_template(gray, microscope_type, min_radius, max_radi
     
     return droplets
 
+def detect_circles_v9(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
+    """
+    V9 Detection Algorithm - Microscope_2 Parameter Optimization
+    
+    This algorithm focuses on optimizing parameters specifically for microscope_2
+    (frames 7-9) where V3 struggled, while using V8's approach for other frames.
+    
+    Args:
+        image: OpenCV image
+        min_radius: Minimum circle radius
+        max_radius: Maximum circle radius
+        dp: Inverse ratio of accumulator resolution
+        min_dist: Minimum distance between circle centers
+        param1: Upper threshold for edge detection
+        param2: Accumulator threshold for center detection
+    
+    Returns:
+        List of detected circles with format [cx, cy, r]
+    """
+    height, width = image.shape[:2]
+    
+    logger.debug(f"V9 Detection: Starting microscope_2 parameter optimization on {width}x{height} image")
+    
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
+    
+    # 1. Classify microscope type
+    microscope_type = classify_microscope(gray)
+    logger.debug(f"V9 Detection: Classified microscope as: {microscope_type}")
+    
+    # 2. Select approach based on microscope type
+    if microscope_type == 'microscope_1':  # Use V8's approach for microscope_1
+        # Use V8's sophisticated V3 selection
+        if should_use_v3(gray):
+            droplets = detect_circles_v3(image, min_radius, max_radius, dp, min_dist, param1, param2)
+        else:
+            droplets = detect_circles_v7(image, min_radius, max_radius, dp, min_dist, param1, param2)
+    else:  # microscope_2 - optimize parameters specifically for frames 7-9
+        # Use optimized parameters for microscope_2
+        droplets = detect_with_optimized_microscope_2(gray, min_radius, max_radius)
+    
+    logger.debug(f"V9 Detection: Found {len(droplets)} droplets using microscope_2 optimization")
+    for i, droplet in enumerate(droplets):
+        logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
+    
+    return droplets
+
+def detect_with_optimized_microscope_2(gray, min_radius, max_radius):
+    """
+    Optimized detection specifically for microscope_2 (frames 7-9)
+    """
+    # Start with V7's approach but with parameters optimized for microscope_2
+    params = get_optimized_microscope_2_parameters()
+    
+    # Simple preprocessing - just CLAHE for contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    preprocessed = clahe.apply(gray)
+    
+    # Apply microscope_2-specific detection with progressive sensitivity
+    droplets = detect_with_parameters(preprocessed, params, min_radius, max_radius)
+    
+    return droplets
+
+def get_optimized_microscope_2_parameters():
+    """
+    Get optimized parameters specifically for microscope_2 (frames 7-9)
+    These will be iteratively improved based on performance on frames 7-9
+    """
+    # Start with V7's microscope_c parameters as baseline
+    parameter_sets = {
+        'microscope_2': {  # Optimized for frames 7-9
+            'minDist': 105, 'param1': 65, 'param2': 50,
+            'fallback1': {'minDist': 85, 'param1': 50, 'param2': 40},
+            'fallback2': {'minDist': 65, 'param1': 40, 'param2': 30}
+        }
+    }
+    
+    return parameter_sets['microscope_2']
+
 def create_enhanced_preprocessing(gray):
     """
     Create enhanced preprocessed image with improved preprocessing pipeline
@@ -3335,7 +3417,7 @@ def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_
         min_dist: Minimum distance between circle centers
         param1: Upper threshold for edge detection
         param2: Accumulator threshold for center detection
-        method: Detection method ("v1" for original, "v2" for optimized, "v3" for hybrid, "v4" for advanced hough, "v5" for optimized hough, "v6" for ultra-optimized hough, "v7" for microscope-adaptive, "v8" for placeholder)
+        method: Detection method ("v1" for original, "v2" for optimized, "v3" for hybrid, "v4" for advanced hough, "v5" for optimized hough, "v6" for ultra-optimized hough, "v7" for microscope-adaptive, "v8" for v3 hybrid, "v9" for microscope_2 optimization)
     
     Returns:
         Dictionary matching the Gemini service format
@@ -3361,7 +3443,10 @@ def analyze_frame_comprehensive(image, min_radius=20, max_radius=500, dp=1, min_
         logger.debug(f"Using detection method: v7 (microscope-adaptive detection)")
     elif method == "v8":
         droplets = detect_circles_v8(image, min_radius, max_radius, dp, min_dist, param1, param2)
-        logger.debug(f"Using detection method: v8 (placeholder algorithm)")
+        logger.debug(f"Using detection method: v8 (v3 hybrid with sophisticated selection)")
+    elif method == "v9":
+        droplets = detect_circles_v9(image, min_radius, max_radius, dp, min_dist, param1, param2)
+        logger.debug(f"Using detection method: v9 (microscope_2 parameter optimization)")
     else:
         droplets = detect_circles_hough(image, min_radius, max_radius, dp, min_dist, param1, param2)
         logger.debug(f"Using detection method: v1 (Hough circles)")
@@ -3695,6 +3780,16 @@ if os.getenv('FLASK_ENV') == 'development':
                 )
             elif method == "v8":
                 circles = detect_circles_v8(
+                    image,
+                    min_radius=min_radius,
+                    max_radius=max_radius,
+                    dp=dp,
+                    min_dist=min_dist,
+                    param1=param1,
+                    param2=param2
+                )
+            elif method == "v9":
+                circles = detect_circles_v9(
                     image,
                     min_radius=min_radius,
                     max_radius=max_radius,
