@@ -69,7 +69,7 @@ def detect_circles_v8(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 | Iteration | Average Total Loss | vs V2 | vs V3 | vs V4 | vs V5 | vs V6 | vs V7 | Notes |
 |-----------|-------------------|-------|-------|-------|-------|-------|-------|-------|
 | Baseline (Placeholder) | 353,983.49 | 65% worse | 29% worse | 1,182% worse | 1,781% worse | 1,715% worse | 1,841% worse | Random values |
-| Iteration 1 | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| Iteration 1 | 18,241.47 | 92% better | 93% better | 34% better | 3% better | 7% better | Same as V7 | V3 Hybrid with Microscope-Adaptive |
 
 ## Key Learnings from V7 Development
 
