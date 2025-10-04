@@ -22,7 +22,7 @@ const App: React.FC = () => {
   const [imageDimensions, setImageDimensions] = useState({ width: 1280, height: 720 });
   const [frameInterval, setFrameInterval] = useState(120);
   const [detectionAlgorithm, setDetectionAlgorithm] = useState<DetectionAlgorithm>('hough');
-  const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6'>('v6');
+  const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7'>('v7');
   const [view, setView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -452,7 +452,7 @@ const App: React.FC = () => {
                   <select
                     id="detection-method"
                     value={detectionMethod}
-                    onChange={(e) => setDetectionMethod(e.target.value as 'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6')}
+                    onChange={(e) => setDetectionMethod(e.target.value as 'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7')}
                     disabled={status === 'extracting' || status === 'analyzing'}
                     className="w-full p-2 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                   >
@@ -462,6 +462,7 @@ const App: React.FC = () => {
                     <option value="v4">V4 - Advanced Hough Detection (87% Better than V2)</option>
                     <option value="v5">V5 - Optimized Hough Detection (32% Better than V4)</option>
                     <option value="v6">V6 - Ultra-Optimized Hough Detection (4% Better than V5)</option>
+                    <option value="v7">V7 - Next Generation Algorithm (Future Development)</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {detectionMethod === 'v1' 
@@ -474,6 +475,8 @@ const App: React.FC = () => {
                       ? 'Optimized Hough detection with fine-tuned parameters and progressive sensitivity'
                       : detectionMethod === 'v6'
                       ? 'Ultra-optimized Hough detection with aggressive parameter tuning'
+                      : detectionMethod === 'v7'
+                      ? 'Placeholder algorithm for future development and testing'
                       : 'Advanced Hough detection with progressive sensitivity and optimized preprocessing'
                     }
                   </p>
