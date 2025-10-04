@@ -48,6 +48,22 @@ export const FrameCanvas: React.FC<FrameCanvasProps> = ({ frameData, analysis, o
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas || !analysis) return;
     
+    // Clear canvas first
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (!frameData) {
+      // Draw placeholder for missing frame data
+      ctx.fillStyle = '#f3f4f6';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Frame data not available', canvas.width / 2, canvas.height / 2);
+      ctx.font = '16px Arial';
+      ctx.fillText('This frame could not be loaded from the analysis file', canvas.width / 2, canvas.height / 2 + 30);
+      return;
+    }
+    
     const img = new Image();
     img.src = `data:image/jpeg;base64,${frameData}`;
     img.onload = () => {

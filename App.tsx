@@ -388,38 +388,153 @@ const App: React.FC = () => {
       const analysisDataContent = await zipContent.files['analysis_data.json'].async('text');
       const analysisData = JSON.parse(analysisDataContent);
       
+      // Validate analysis data
+      if (!analysisData.analyses || !Array.isArray(analysisData.analyses)) {
+        setError('Invalid analysis data format');
+        setStatus('error');
+        return;
+      }
+      
       // Restore application state
       setAnalyses(analysisData.analyses);
-      setImageDimensions(analysisData.imageDimensions);
-      setFrameInterval(analysisData.frameInterval);
-      setDetectionMethod(analysisData.detectionMethod);
+      setImageDimensions(analysisData.imageDimensions || { width: 1280, height: 720 });
+      setFrameInterval(analysisData.frameInterval || 120);
+      setDetectionMethod(analysisData.detectionMethod || 'v9');
       
-      // Load frames from raw folder
+      // Load frames from raw folder - use analysis data as source of truth for frame count
       const rawFolder = zipContent.folder('raw');
       if (!rawFolder) {
         setError('No raw frames found in analysis file');
         setStatus('error');
         return;
       }
-
-      const frameFiles = Object.keys(rawFolder.files)
-        .filter(name => name.endsWith('.jpeg'))
-        .sort();
       
+      // Ensure we're only loading from raw folder, never processed
+      console.log('Loading frames from RAW folder only (not processed)');
+      
+      // Verify raw folder path
+      const rawFolderPath = 'raw/';
+      console.log('Raw folder path:', rawFolderPath);
+
+      // Use the number of analyses as the expected frame count
+      const expectedFrameCount = analysisData.analyses.length;
       const loadedFrames: string[] = [];
-      for (let i = 0; i < frameFiles.length; i++) {
-        const frameFile = rawFolder.files[frameFiles[i]];
-        const frameData = await frameFile.async('base64');
-        loadedFrames.push(frameData);
-        setProgress(((i + 1) / frameFiles.length) * 100);
+      
+      console.log(`Loading analysis with ${expectedFrameCount} expected frames`);
+      
+      // Debug: List all files in raw folder
+      const allRawFiles = Object.keys(rawFolder.files);
+      console.log('Available files in raw folder:', allRawFiles);
+      
+      // Filter to only files that are actually in the raw folder (not subfolders)
+      // Files in raw folder should not have 'processed/' in their path
+      const rawOnlyFiles = allRawFiles.filter(file => !file.includes('processed/'));
+      console.log('Raw-only files (no processed):', rawOnlyFiles);
+      
+      // Also check if there are any .jpeg files at all (only from raw folder)
+      const jpegFiles = rawOnlyFiles.filter(file => file.endsWith('.jpeg'));
+      console.log('JPEG files found in raw folder:', jpegFiles);
+      
+      // Debug: Check if there's a processed folder and what's in it
+      const processedFolder = zipContent.folder('processed');
+      if (processedFolder) {
+        const processedFiles = Object.keys(processedFolder.files);
+        const processedJpegs = processedFiles.filter(file => file.endsWith('.jpeg'));
+        console.log('Available files in processed folder:', processedFiles);
+        console.log('JPEG files found in processed folder:', processedJpegs);
+      } else {
+        console.log('No processed folder found in ZIP file');
       }
       
-      setFrames(loadedFrames);
+      // Load frames in order based on analysis data
+      for (let i = 0; i < expectedFrameCount; i++) {
+        const frameFileName = `frame_${String(i).padStart(4, '0')}.jpeg`;
+        const frameFile = rawFolder.files[frameFileName];
+        
+        console.log(`Looking for frame file: ${frameFileName}, found:`, !!frameFile);
+        
+        if (frameFile) {
+          const frameData = await frameFile.async('base64');
+          loadedFrames.push(frameData);
+          console.log(`Successfully loaded frame ${i} from raw folder: ${frameFileName}`);
+          console.log(`Full path: raw/${frameFileName}`);
+        } else {
+          console.warn(`Frame file ${frameFileName} not found in raw folder`);
+          // Try alternative naming patterns
+          const altFileName1 = `frame_${i}.jpeg`;
+          const altFileName2 = `frame_${String(i).padStart(3, '0')}.jpeg`;
+          const altFile1 = rawFolder.files[altFileName1];
+          const altFile2 = rawFolder.files[altFileName2];
+          
+          if (altFile1) {
+            console.log(`Found alternative file in raw folder: ${altFileName1}`);
+            const frameData = await altFile1.async('base64');
+            loadedFrames.push(frameData);
+          } else if (altFile2) {
+            console.log(`Found alternative file in raw folder: ${altFileName2}`);
+            const frameData = await altFile2.async('base64');
+            loadedFrames.push(frameData);
+          } else {
+            // Try to find any frame file that might match
+            const framePattern = new RegExp(`frame_${i}(?:_\\d+)?\\.jpeg$`);
+            const matchingFile = allRawFiles.find(file => framePattern.test(file));
+            
+            if (matchingFile) {
+              console.log(`Found matching file in raw folder: ${matchingFile}`);
+              const frameData = await rawFolder.files[matchingFile].async('base64');
+              loadedFrames.push(frameData);
+            } else {
+              console.warn(`No frame file found for frame ${i} in raw folder`);
+              loadedFrames.push('');
+            }
+          }
+        }
+        setProgress(((i + 1) / expectedFrameCount) * 100);
+      }
+      
+      console.log(`Successfully loaded ${loadedFrames.length} frames`);
+      
+      // If we didn't load any frames successfully, try a different approach
+      let alternativeFrames: string[] = [];
+      if (loadedFrames.filter(frame => frame !== '').length === 0 && jpegFiles.length > 0) {
+        console.log('No frames loaded with standard approach, trying alternative method...');
+        
+        // Try to load frames based on available files
+        alternativeFrames = [];
+        for (let i = 0; i < Math.min(expectedFrameCount, jpegFiles.length); i++) {
+          const jpegFile = jpegFiles[i];
+          if (jpegFile && !jpegFile.includes('processed/')) {
+            const frameData = await rawFolder.files[jpegFile].async('base64');
+            alternativeFrames.push(frameData);
+            console.log(`Loaded alternative frame from raw folder: ${jpegFile}`);
+          } else if (jpegFile && jpegFile.includes('processed/')) {
+            console.warn(`Skipping processed file: ${jpegFile}`);
+          }
+        }
+        
+        if (alternativeFrames.length > 0) {
+          console.log(`Loaded ${alternativeFrames.length} frames using alternative method`);
+          setFrames(alternativeFrames);
+        } else {
+          setFrames(loadedFrames);
+        }
+      } else {
+        setFrames(loadedFrames);
+      }
+      
       setCurrentFrame(0);
       setStatus('ready');
       
       // Show success message
-      setError(`✅ Successfully loaded analysis with ${loadedFrames.length} frames from ${analysisData.videoFileName}`);
+      const finalFrames = loadedFrames.filter(frame => frame !== '').length > 0 ? loadedFrames : (alternativeFrames || []);
+      const actualLoadedFrames = finalFrames.filter(frame => frame !== '').length;
+      const missingFrames = expectedFrameCount - actualLoadedFrames;
+      
+      if (missingFrames > 0) {
+        setError(`⚠️ Loaded analysis with ${actualLoadedFrames} frames (${missingFrames} missing) from ${analysisData.videoFileName}`);
+      } else {
+        setError(`✅ Successfully loaded analysis with ${actualLoadedFrames} frames from ${analysisData.videoFileName}`);
+      }
       setTimeout(() => setError(null), 5000);
       
     } catch (error) {
