@@ -116,6 +116,11 @@ const App: React.FC = () => {
         img.src = `data:image/jpeg;base64,${extractedFrames[0]}`;
         await new Promise(resolve => { img.onload = resolve; });
         const { width, height } = img;
+        
+        // Set image dimensions for the first video (they should be the same for all videos)
+        if (i === 0) {
+          setImageDimensions({ width, height });
+        }
 
         // Analyze each frame
         const videoAnalyses: FrameAnalysis[] = [];
@@ -870,6 +875,11 @@ const App: React.FC = () => {
         
         if (analysisData.analyses && Array.isArray(analysisData.analyses)) {
           importedAnalyses[analysisData.videoFileName || folderName] = analysisData.analyses;
+          
+          // Set image dimensions from the analysis data if available
+          if (analysisData.imageDimensions && processedVideos === 0) {
+            setImageDimensions(analysisData.imageDimensions);
+          }
         }
 
         // Load raw frames
