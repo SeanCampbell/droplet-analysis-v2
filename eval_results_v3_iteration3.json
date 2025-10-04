@@ -1,0 +1,58 @@
+{
+  "evaluation_summary": {
+    "num_frames": 4,
+    "total_droplet_loss": 68.3959970370959,
+    "total_scale_loss": 17574.0,
+    "total_loss": 17642.395997037096,
+    "avg_droplet_loss": 17.098999259273974,
+    "avg_scale_loss": 4393.5,
+    "avg_total_loss": 4410.598999259274,
+    "total_droplet_count_diff": 0,
+    "avg_droplet_count_diff": 0.0
+  },
+  "frame_results": [
+    {
+      "frame": "frame_0001.jpeg",
+      "droplet_loss": 8.759214920070896,
+      "scale_loss": 17431,
+      "total_loss": 17439.759214920072,
+      "gt_droplet_count": 2,
+      "pred_droplet_count": 2,
+      "droplet_count_diff": 0,
+      "ground_truth": {
+        "frame": 1,
+        "timestamp": "111.218",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 1188.8457519821352,
+            "cy": 513.6530136530138,
+            "id": 0,
+            "r": 289.91643504765534
+          },
+          {
+            "cx": 664.3738091823566,
+            "cy": 535.5061605061607,
+            "id": 1,
+            "r": 305.94543539069707
+          }
+        ],
+        "scale": {
+          "label": "50 \u00b5m",
+          "length": 189,
+          "x1": 1490,
+          "x2": 1679,
+          "y1": 1044,
+          "y2": 1044
+        }
+      },
+      "prediction": {
+        "timestamp": "111.218",
+        "timestampFound": true,
+        "scaleFound": true,
+        "dropletsFound": true,
+        "droplets": [
+          {
+            "cx": 

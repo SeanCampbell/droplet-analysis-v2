@@ -50,6 +50,21 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5GB max file size (
 
 logger.info(f"Starting Flask app in {'DEBUG' if debug_mode else 'PRODUCTION'} mode")
 
+def convert_numpy_types(obj):
+    """Convert NumPy types to native Python types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    else:
+        return obj
+
 def base64_to_image(base64_string):
     """Convert base64 string to OpenCV image"""
     # Remove data URL prefix if present
@@ -2512,6 +2527,9 @@ def analyze_frame():
         droplet_count = len(result['droplets'])
         logger.info(f"Analysis completed: {droplet_count} droplets found")
         logger.debug(f"Result keys: {list(result.keys())}")
+        
+        # Convert NumPy types to native Python types for JSON serialization
+        result = convert_numpy_types(result)
         
         return jsonify({
             "success": True,

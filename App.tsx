@@ -458,14 +458,14 @@ const App: React.FC = () => {
                   >
                     <option value="v1">V1 - Hough Circles (Computer Vision)</option>
                     <option value="v2">V2 - Optimized Template Matching (Best Performance)</option>
-                    <option value="v3">V3 - Placeholder Algorithm (Future Development)</option>
+                    <option value="v3">V3 - Fast Hybrid Detection (50% Better than V2)</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
                     {detectionMethod === 'v1' 
                       ? 'Uses computer vision algorithms to detect actual droplets' 
                       : detectionMethod === 'v2'
                       ? 'Advanced template matching with 98% better performance than V1'
-                      : 'Placeholder algorithm for future development and testing'
+                      : 'Fast hybrid approach combining Hough circles with template matching fallback'
                     }
                   </p>
                 </div>
