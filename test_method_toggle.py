@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.append('python-server')
 
 try:
-    from app import analyze_frame_comprehensive, detect_circles_hough, detect_circles_v2, detect_circles_v3
+    from app import analyze_frame_comprehensive, detect_circles_hough, detect_circles_v2, detect_circles_v3, detect_circles_v4
 except ImportError:
     print("❌ Error: Could not import detection functions from python-server/app.py")
     print("💡 Make sure you're running this script from the project root directory")
@@ -63,11 +63,21 @@ def test_direct_function_calls():
         else:
             print(f"   Circle {i+1}: center=({circle[0]}, {circle[1]}), radius={circle[2]}")
     
-    # Test v3 (placeholder algorithm)
-    print("\n🔬 Testing v3 (placeholder algorithm)...")
+    # Test v3 (fast hybrid detection)
+    print("\n🔬 Testing v3 (fast hybrid detection)...")
     v3_result = detect_circles_v3(test_image, min_radius=20, max_radius=100)
     print(f"   V3 detected {len(v3_result)} circles")
     for i, circle in enumerate(v3_result):
+        if isinstance(circle, dict):
+            print(f"   Circle {i+1}: center=({circle['cx']}, {circle['cy']}), radius={circle['r']}")
+        else:
+            print(f"   Circle {i+1}: center=({circle[0]}, {circle[1]}), radius={circle[2]}")
+    
+    # Test v4 (placeholder algorithm)
+    print("\n🚀 Testing v4 (placeholder algorithm)...")
+    v4_result = detect_circles_v4(test_image, min_radius=20, max_radius=100)
+    print(f"   V4 detected {len(v4_result)} circles")
+    for i, circle in enumerate(v4_result):
         if isinstance(circle, dict):
             print(f"   Circle {i+1}: center=({circle['cx']}, {circle['cy']}), radius={circle['r']}")
         else:
@@ -78,10 +88,12 @@ def test_direct_function_calls():
     v1_comprehensive = analyze_frame_comprehensive(test_image, method="v1")
     v2_comprehensive = analyze_frame_comprehensive(test_image, method="v2")
     v3_comprehensive = analyze_frame_comprehensive(test_image, method="v3")
+    v4_comprehensive = analyze_frame_comprehensive(test_image, method="v4")
     
     print(f"   V1 comprehensive: {len(v1_comprehensive.get('droplets', []))} droplets")
     print(f"   V2 comprehensive: {len(v2_comprehensive.get('droplets', []))} droplets")
     print(f"   V3 comprehensive: {len(v3_comprehensive.get('droplets', []))} droplets")
+    print(f"   V4 comprehensive: {len(v4_comprehensive.get('droplets', []))} droplets")
     
     return True
 
