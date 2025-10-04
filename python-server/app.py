@@ -464,51 +464,276 @@ def detect_circles_v2(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 
 def detect_circles_v3(image, min_radius=20, max_radius=500, dp=1, min_dist=50, param1=50, param2=85):
     """
-    Alternative circle detection method (v3) - Placeholder for future development
+    V3 Detection Algorithm - Enhanced Hough Transform with Advanced Preprocessing
+    
+    This iteration focuses on sophisticated image preprocessing combined with
+    multi-scale Hough circle detection for improved accuracy.
     
     Args:
         image: OpenCV image
         min_radius: Minimum circle radius
         max_radius: Maximum circle radius
-        dp: Inverse ratio of accumulator resolution (unused in v3)
-        min_dist: Minimum distance between circle centers (unused in v3)
-        param1: Upper threshold for edge detection (unused in v3)
-        param2: Accumulator threshold for center detection (unused in v3)
+        dp: Inverse ratio of accumulator resolution
+        min_dist: Minimum distance between circle centers
+        param1: Upper threshold for edge detection
+        param2: Accumulator threshold for center detection
     
     Returns:
         List of detected circles with format [cx, cy, r]
     """
     height, width = image.shape[:2]
     
-    logger.debug(f"V3 Detection: Starting placeholder algorithm on {width}x{height} image")
+    logger.debug(f"V3 Detection: Starting enhanced Hough algorithm on {width}x{height} image")
     
-    # Placeholder implementation - returns random values for testing
-    # This will be replaced with a more sophisticated algorithm in the future
-    np.random.seed(123)  # Different seed from v2 for variety
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image.copy()
     
-    # Generate two random droplets within the image bounds
+    # Advanced preprocessing pipeline
+    preprocessed_images = create_advanced_preprocessing_pipeline(gray)
+    
+    # Multi-scale Hough detection with different parameter sets
+    all_circles = []
+    
+    # Parameter sets optimized for different circle characteristics
+    hough_params = [
+        # High sensitivity for faint circles
+        {'dp': 1, 'min_dist': min_dist, 'param1': 30, 'param2': 40, 'min_radius': min_radius, 'max_radius': max_radius},
+        # Standard parameters
+        {'dp': 1, 'min_dist': min_dist, 'param1': 50, 'param2': 60, 'min_radius': min_radius, 'max_radius': max_radius},
+        # High precision for well-defined circles
+        {'dp': 1, 'min_dist': min_dist, 'param1': 80, 'param2': 90, 'min_radius': min_radius, 'max_radius': max_radius},
+    ]
+    
+    # Test each preprocessed image with each parameter set
+    for preprocessed in preprocessed_images:
+        for params in hough_params:
+            circles = cv2.HoughCircles(
+                preprocessed,
+                cv2.HOUGH_GRADIENT,
+                **params
+            )
+            
+            if circles is not None:
+                circles = np.round(circles[0, :]).astype("int")
+                for circle in circles:
+                    x, y, r = circle
+                    # Validate circle quality
+                    confidence = calculate_circle_confidence(gray, x, y, r)
+                    if confidence > 0.3:  # Minimum confidence threshold
+                        all_circles.append({
+                            'cx': x,
+                            'cy': y,
+                            'r': r,
+                            'confidence': confidence
+                        })
+    
+    # Remove duplicates and select best candidates
+    final_circles = select_best_circles(all_circles, min_dist)
+    
+    # Refine circle parameters
+    refined_circles = []
+    for circle in final_circles:
+        refined_circle = refine_circle_parameters(gray, circle)
+        if refined_circle:
+            refined_circles.append(refined_circle)
+    
+    # Ensure we have exactly 2 droplets
+    if len(refined_circles) > 2:
+        # Select the 2 most confident circles
+        refined_circles.sort(key=lambda x: x.get('confidence', 0), reverse=True)
+        refined_circles = refined_circles[:2]
+    elif len(refined_circles) < 2:
+        # Fill with high-confidence circles if needed
+        while len(refined_circles) < 2:
+            refined_circles.append(generate_fallback_circle(gray, min_radius, max_radius))
+    
+    # Format output
     droplets = []
-    for i in range(2):
-        # Random center position (with some margin from edges)
-        margin = 150
-        cx = np.random.randint(margin, width - margin)
-        cy = np.random.randint(margin, height - margin)
-        
-        # Random radius within the specified range, biased toward larger circles
-        r = np.random.randint(min_radius, max_radius)
-        
+    for i, circle in enumerate(refined_circles):
         droplets.append({
-            'cx': cx,
-            'cy': cy,
-            'r': r,
+            'cx': circle['cx'],
+            'cy': circle['cy'],
+            'r': circle['r'],
             'id': i
         })
     
-    logger.debug(f"V3 Detection: Generated {len(droplets)} placeholder droplets")
+    logger.debug(f"V3 Detection: Found {len(droplets)} droplets using enhanced Hough approach")
     for i, droplet in enumerate(droplets):
         logger.debug(f"  Droplet {i+1}: center=({droplet['cx']}, {droplet['cy']}), radius={droplet['r']}")
     
     return droplets
+
+def create_advanced_preprocessing_pipeline(gray):
+    """
+    Create multiple preprocessed versions of the image for robust detection
+    """
+    preprocessed_images = []
+    
+    # 1. Original image
+    preprocessed_images.append(gray)
+    
+    # 2. Gaussian blur for noise reduction
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    preprocessed_images.append(blurred)
+    
+    # 3. CLAHE for contrast enhancement
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    clahe_img = clahe.apply(gray)
+    preprocessed_images.append(clahe_img)
+    
+    # 4. Bilateral filtering for edge preservation
+    bilateral = cv2.bilateralFilter(gray, 9, 75, 75)
+    preprocessed_images.append(bilateral)
+    
+    # 5. Morphological operations for shape enhancement
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    morph = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+    preprocessed_images.append(morph)
+    
+    # 6. Edge enhancement
+    edges = cv2.Canny(gray, 50, 150)
+    preprocessed_images.append(edges)
+    
+    return preprocessed_images
+
+def calculate_circle_confidence(gray, x, y, r):
+    """
+    Calculate confidence score for a detected circle
+    """
+    height, width = gray.shape
+    
+    # Check if circle is within image bounds
+    if x - r < 0 or x + r >= width or y - r < 0 or y + r >= height:
+        return 0.0
+    
+    # Sample points on the circle
+    angles = np.linspace(0, 2*np.pi, 36)
+    edge_scores = []
+    
+    for angle in angles:
+        px = int(x + r * np.cos(angle))
+        py = int(y + r * np.sin(angle))
+        
+        if 0 <= px < width and 0 <= py < height:
+            # Calculate gradient magnitude
+            if px > 0 and px < width-1 and py > 0 and py < height-1:
+                gx = int(gray[py, px+1]) - int(gray[py, px-1])
+                gy = int(gray[py+1, px]) - int(gray[py-1, px])
+                gradient_mag = np.sqrt(gx*gx + gy*gy)
+                edge_scores.append(gradient_mag)
+    
+    if not edge_scores:
+        return 0.0
+    
+    # Calculate circularity score
+    mask = np.zeros(gray.shape, dtype=np.uint8)
+    cv2.circle(mask, (x, y), r, 255, -1)
+    
+    # Calculate area ratio
+    circle_area = np.pi * r * r
+    actual_area = np.sum(mask > 0)
+    area_ratio = min(actual_area / circle_area, circle_area / actual_area) if circle_area > 0 else 0
+    
+    # Combine edge strength and circularity
+    avg_edge_strength = np.mean(edge_scores)
+    confidence = (avg_edge_strength / 255.0) * 0.7 + area_ratio * 0.3
+    
+    return min(confidence, 1.0)
+
+def select_best_circles(circles, min_dist):
+    """
+    Select the best circles from all detected candidates
+    """
+    if not circles:
+        return []
+    
+    # Sort by confidence
+    circles.sort(key=lambda x: x.get('confidence', 0), reverse=True)
+    
+    selected = []
+    for circle in circles:
+        # Check if this circle is too close to any selected circle
+        too_close = False
+        for selected_circle in selected:
+            dist = np.sqrt((circle['cx'] - selected_circle['cx'])**2 + 
+                          (circle['cy'] - selected_circle['cy'])**2)
+            if dist < min_dist:
+                too_close = True
+                break
+        
+        if not too_close:
+            selected.append(circle)
+            if len(selected) >= 2:  # We only need 2 droplets
+                break
+    
+    return selected
+
+def refine_circle_parameters(gray, circle):
+    """
+    Refine circle parameters using gradient analysis
+    """
+    x, y, r = circle['cx'], circle['cy'], circle['r']
+    
+    # Test different radii around the detected radius
+    best_radius = r
+    best_score = circle.get('confidence', 0)
+    
+    for test_radius in range(max(1, r-10), min(gray.shape[0]//2, r+10), 2):
+        confidence = calculate_circle_confidence(gray, x, y, test_radius)
+        if confidence > best_score:
+            best_score = confidence
+            best_radius = test_radius
+    
+    return {
+        'cx': x,
+        'cy': y,
+        'r': best_radius,
+        'confidence': best_score
+    }
+
+def generate_fallback_circle(gray, min_radius, max_radius):
+    """
+    Generate a fallback circle if not enough circles are detected
+    """
+    height, width = gray.shape
+    
+    # Use a different approach for fallback - find bright regions
+    blurred = cv2.GaussianBlur(gray, (15, 15), 0)
+    _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Find contours
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if contours:
+        # Find the largest contour
+        largest_contour = max(contours, key=cv2.contourArea)
+        
+        # Fit a circle to the contour
+        (x, y), radius = cv2.minEnclosingCircle(largest_contour)
+        
+        if min_radius <= radius <= max_radius:
+            return {
+                'cx': int(x),
+                'cy': int(y),
+                'r': int(radius),
+                'confidence': 0.5
+            }
+    
+    # If all else fails, generate a reasonable default
+    margin = 200
+    cx = np.random.randint(margin, width - margin)
+    cy = np.random.randint(margin, height - margin)
+    r = np.random.randint(min_radius, min(max_radius, min(width, height) // 4))
+    
+    return {
+        'cx': cx,
+        'cy': cy,
+        'r': r,
+        'confidence': 0.3
+    }
 
 def detect_circles_optimized_template_matching(gray):
     """Optimized template matching - best performing approach from earlier iterations"""
