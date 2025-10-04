@@ -67,6 +67,8 @@ def detect_circles_v5(image, min_radius=20, max_radius=500, dp=1, min_dist=50, p
 |-----------|-------------------|-------|-------|-------|-------|
 | Baseline (Placeholder) | 519,980.57 | 142% worse | 90% worse | 1,783% worse | Random values |
 | Iteration 1 | 92,242.47 | 57% worse | 66% worse | 234% worse | Hybrid Template + Hough |
+| Iteration 2 | 870,340.62 | 305% worse | 217% worse | 3,052% worse | Enhanced V4 with Complex Preprocessing |
+| Iteration 3 | 18,812.52 | 91% better | 93% better | 32% better | Optimized V4 with Fine-tuned Parameters |
 
 ## Key Learnings from V4 Development
 
