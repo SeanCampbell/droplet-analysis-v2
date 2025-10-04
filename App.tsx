@@ -24,6 +24,8 @@ const App: React.FC = () => {
   const [detectionAlgorithm, setDetectionAlgorithm] = useState<DetectionAlgorithm>('hough');
   const [detectionMethod, setDetectionMethod] = useState<'v1' | 'v2' | 'v3' | 'v4' | 'v5' | 'v6' | 'v7' | 'v8' | 'v9'>('v9');
   const [view, setView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
+  const [showCSVModal, setShowCSVModal] = useState(false);
+  const [csvViewMode, setCsvViewMode] = useState<'table' | 'raw'>('table');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -168,6 +170,80 @@ const App: React.FC = () => {
     setAnalyses(prev => prev.map(a => a.frame === newAnalysis.frame ? newAnalysis : a));
   };
 
+  const generateCSVContent = () => {
+    if (analyses.length === 0) return '';
+
+    let csvContent = "Frame,Timestamp,Scale_Pixels,Scale_Label,Droplet_1_cx,Droplet_1_cy,Droplet_1_radius,Droplet_2_cx,Droplet_2_cy,Droplet_2_radius\n";
+
+    analyses.forEach(a => {
+      const d1 = a.droplets[0] || { cx: '', cy: '', r: '' };
+      const d2 = a.droplets[1] || { cx: '', cy: '', r: '' };
+      const row = [a.frame, `"${a.timestamp}"`, a.scale.length, `"${a.scale.label}"`, d1.cx, d1.cy, d1.r, d2.cx, d2.cy, d2.r].join(",");
+      csvContent += row + "\n";
+    });
+
+    return csvContent;
+  };
+
+  const renderCSVTable = () => {
+    if (analyses.length === 0) return null;
+
+    return (
+      <div className="overflow-x-auto shadow-sm">
+        <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">Frame</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">Timestamp</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">Scale (px)</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">Scale Label</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">Droplet 1</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-200">Droplet 2</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {analyses.map((analysis, index) => {
+              const d1 = analysis.droplets[0] || { cx: '', cy: '', r: '' };
+              const d2 = analysis.droplets[1] || { cx: '', cy: '', r: '' };
+              
+              return (
+                <tr key={index} className={`hover:bg-blue-50 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 border-b border-gray-100">{analysis.frame}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 border-b border-gray-100">{analysis.timestamp}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 border-b border-gray-100">{analysis.scale.length}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 border-b border-gray-100">{analysis.scale.label}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 border-b border-gray-100">
+                    {d1.cx ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        ({d1.cx}, {d1.cy}) r:{d1.r}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic">N/A</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700 border-b border-gray-100">
+                    {d2.cx ? (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        ({d2.cx}, {d2.cy}) r:{d2.r}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic">N/A</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+
+  const handleViewCSV = () => {
+    setShowCSVModal(true);
+  };
+
   const handleExportAll = async () => {
     if (analyses.length === 0 || status !== 'ready') return;
 
@@ -178,13 +254,7 @@ const App: React.FC = () => {
       const zip = new JSZip();
       
       // 1. Add CSV analysis data
-      let csvContent = "Frame,Timestamp,Scale_Pixels,Scale_Label,Droplet_1_cx,Droplet_1_cy,Droplet_1_radius,Droplet_2_cx,Droplet_2_cy,Droplet_2_radius\n";
-      analyses.forEach(a => {
-        const d1 = a.droplets[0] || { cx: '', cy: '', r: '' };
-        const d2 = a.droplets[1] || { cx: '', cy: '', r: '' };
-        const row = [a.frame, `"${a.timestamp}"`, a.scale.length, `"${a.scale.label}"`, d1.cx, d1.cy, d1.r, d2.cx, d2.cy, d2.r].join(",");
-        csvContent += row + "\n";
-      });
+      const csvContent = generateCSVContent();
       zip.file("analysis.csv", csvContent);
 
       // 2. Add JSON analysis data (for loading back into the app)
@@ -590,7 +660,7 @@ const App: React.FC = () => {
 
               <div>
                  <label className="block text-sm font-medium text-gray-700 mb-1">6. Export & Load</label>
-                 <div className="flex space-x-2">
+                 <div className="flex space-x-2 mb-2">
                     <button
                       onClick={handleExportAll}
                       disabled={status !== 'ready'}
@@ -608,8 +678,17 @@ const App: React.FC = () => {
                       />
                     </label>
                  </div>
+                 <div className="flex space-x-2">
+                    <button
+                      onClick={handleViewCSV}
+                      disabled={status !== 'ready' || analyses.length === 0}
+                      className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-300"
+                    >
+                      View CSV Data
+                    </button>
+                 </div>
                  <p className="text-xs text-gray-500 mt-1">
-                   Export includes CSV data, processed frames, original video, and analysis metadata. Load restores a previous analysis.
+                   Export includes CSV data, processed frames, original video, and analysis metadata. Load restores a previous analysis. View CSV shows the data in a readable format.
                  </p>
               </div>
 
@@ -627,6 +706,122 @@ const App: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* CSV Modal */}
+      {showCSVModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-800">CSV Data Preview</h3>
+              <div className="flex items-center space-x-3">
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setCsvViewMode('table')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      csvViewMode === 'table' 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Table View
+                  </button>
+                  <button
+                    onClick={() => setCsvViewMode('raw')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      csvViewMode === 'raw' 
+                        ? 'bg-white text-gray-900 shadow-sm' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Raw CSV
+                  </button>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                  onClick={() => {
+                    const csvContent = generateCSVContent();
+                    navigator.clipboard.writeText(csvContent).then(() => {
+                      // Show a brief success message
+                      const button = event?.target as HTMLButtonElement;
+                      const originalText = button.textContent;
+                      button.textContent = 'Copied!';
+                      button.className = 'bg-green-600 text-white px-3 py-1 rounded transition duration-200';
+                      setTimeout(() => {
+                        button.textContent = originalText;
+                        button.className = 'bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition duration-200';
+                      }, 2000);
+                    }).catch(() => {
+                      alert('Failed to copy to clipboard');
+                    });
+                  }}
+                  className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition duration-200"
+                >
+                  Copy to Clipboard
+                </button>
+                <button
+                  onClick={() => {
+                    const csvContent = generateCSVContent();
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'droplet_analysis.csv';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition duration-200"
+                >
+                  Download CSV
+                </button>
+                <button
+                  onClick={() => setShowCSVModal(false)}
+                  className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition duration-200"
+                >
+                  Close
+                </button>
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="mb-3 text-sm text-gray-700">
+                  <strong>Analysis Data Preview:</strong> {csvViewMode === 'table' ? 'Interactive table view of your droplet analysis results' : 'Raw CSV format for technical review'}
+                </div>
+                {csvViewMode === 'table' ? (
+                  renderCSVTable()
+                ) : (
+                  <pre className="text-sm font-mono text-gray-800 whitespace-pre-wrap overflow-x-auto bg-white p-3 rounded border">
+                    {generateCSVContent()}
+                  </pre>
+                )}
+              </div>
+            </div>
+            <div className="p-4 border-t bg-gray-50 text-sm text-gray-600">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p><strong>Total frames analyzed:</strong> {analyses.length}</p>
+                  <p><strong>Data format:</strong> CSV exportable</p>
+                </div>
+                <div>
+                  {csvViewMode === 'table' ? (
+                    <>
+                      <p><strong>Droplet coordinates:</strong> (x, y) center, r=radius</p>
+                      <p><strong>Scale units:</strong> Pixels and labeled units</p>
+                    </>
+                  ) : (
+                    <>
+                      <p><strong>CSV columns:</strong> Frame, Timestamp, Scale_Pixels, Scale_Label, Droplet_1_cx, Droplet_1_cy, Droplet_1_radius, Droplet_2_cx, Droplet_2_cy, Droplet_2_radius</p>
+                      <p><strong>Format:</strong> Comma-separated values</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
