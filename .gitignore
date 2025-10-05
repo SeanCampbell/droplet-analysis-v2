@@ -23,5 +23,17 @@ dist-ssr
 *.sln
 *.sw?
 
-
 data/
+
+# Electron build artifacts
+dist-electron/*.dmg
+dist-electron/*.dmg.blockmap
+dist-electron/*.exe
+dist-electron/*.AppImage
+dist-electron/mac/
+dist-electron/win/
+dist-electron/linux/
+dist-electron/builder-*.yml
+dist-electron/builder-*.yaml
+dist-electron/latest-*.yml
+
